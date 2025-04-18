@@ -8,6 +8,7 @@ import AnimatedSplashScreen from '@/components/AnimatedSplashScreen';
 import * as Location from 'expo-location';
 import { createContext } from 'react';
 import { Alert } from 'react-native';
+import { DiagnosisProvider } from '@/context/DiagnosisContext';
 
 // Create a context to share location data across screens
 export const LocationContext = createContext<{
@@ -65,6 +66,7 @@ export default function RootLayout() {
       setLocation({
         latitude: currentLocation.coords.latitude,
         longitude: currentLocation.coords.longitude,
+        
       });
     } catch (err) {
       setErrorMsg('Error getting location');
@@ -75,13 +77,20 @@ export default function RootLayout() {
   // Request location when app starts
   useEffect(() => {
     requestLocationPermission();
-  }, []);
+    
+    
+
+  }, []); 
+
+  
+  console.log('Error Message:', errorMsg);
 
   if (!loaded) {
     return null;
   }
 
   return (
+    <DiagnosisProvider>
     <LocationContext.Provider value={{ location, errorMsg, requestLocationPermission }}>
       <AnimatedSplashScreen image={require('../assets/images/logoPlanta.png')}>
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
@@ -89,5 +98,6 @@ export default function RootLayout() {
         </ThemeProvider>
       </AnimatedSplashScreen>
     </LocationContext.Provider>
+    </DiagnosisProvider>
   );
 }
