@@ -11,18 +11,19 @@ import {
 
 import { Ionicons } from '@expo/vector-icons';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import Header from '../../components/Header';
 
 
 export default function ProfileScreen() {
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
+      <Header/>
+      {/* <View style={styles.header}>
         <Text style={styles.headerTitle}>Planta</Text>
         <TouchableOpacity style={styles.menuButton}>
           <Text style={styles.menuDots}>•••</Text>
         </TouchableOpacity>
-      </View>
+      </View> */}
       
       {/* Content */}
       <ScrollView style={styles.content}>
