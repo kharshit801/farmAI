@@ -1,17 +1,26 @@
+// components/ManageFields.tsx
 import React from 'react';
-import { View, Text, Image, StyleSheet } from 'react-native';
+import { View, Text, Image, StyleSheet, Pressable } from 'react-native'; // Import Pressable
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
 import LottieView from 'lottie-react-native';
+import { useRouter } from 'expo-router'; // Import useRouter
 
 const ManageFields: React.FC = () => {
+  const router = useRouter(); // Get the router instance
+
+  const handleChatPress = () => {
+    // Navigate to the chatbot screen
+    router.push('/chatbot');
+  };
+
   return (
     <View style={styles.sectionContainer}>
       <Text style={styles.sectionTitle}>Manage your fields</Text>
       <View style={styles.precisionFarmingCard}>
-        <Image 
-          source={require("../assets/images/tea.png")} 
-          style={styles.fieldImage} 
+        <Image
+          source={require("../assets/images/tea.png")}
+          style={styles.fieldImage}
         />
         <View style={styles.precisionFarmingContent}>
           <Text style={styles.precisionFarmingTitle}>Start precision farming</Text>
@@ -19,17 +28,20 @@ const ManageFields: React.FC = () => {
             Add your field to unlock tailored insights and treatment plans
           </Text>
         </View>
-        <View style={styles.chatBubble}>
-          {/* <MaterialCommunityIcons name="message-outline" size={wp('6%')} color="#1D4ED8" /> */}
-          {/* <View style={styles.healStepIcon}> */}
-            <LottieView
-              source={require('../assets/lottie/chat.json')} // Replace with your document Lottie file
-              autoPlay
-              loop
-              style={styles.lottieIcon}
-            />
-          {/* </View> */}
-        </View>
+        {/* Wrap the chat bubble content with Pressable */}
+        <Pressable
+          style={styles.chatBubble}
+          onPress={handleChatPress} // Add the press handler
+          // Optional: Add feedback like opacity change on press
+          android_ripple={{ color: 'rgba(0, 0, 0, 0.1)' }}
+        >
+          <LottieView
+            source={require('../assets/lottie/chat.json')}
+            autoPlay
+            loop
+            style={styles.lottieIcon}
+          />
+        </Pressable>
       </View>
     </View>
   );
@@ -79,6 +91,7 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     lineHeight: hp('2.5%'),
   },
+  // Apply the chatBubble styles directly to the Pressable
   chatBubble: {
     position: 'absolute',
     top: wp('4%'),
@@ -89,11 +102,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#E5E7EB',
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden', // Clip the ripple effect on Android
   },
   lottieIcon: {
     width: wp('16%'),
     height: wp('16%'),
   },
+  // healStepIcon and its styles are not used for the chat bubble,
+  // but keeping them here based on your original code.
   healStepIcon: {
     width: wp('12%'),
     height: wp('12%'),
@@ -104,7 +120,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: hp('1%'),
   },
-
 });
 
 export default ManageFields;
