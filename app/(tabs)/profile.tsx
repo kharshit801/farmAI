@@ -11,6 +11,7 @@ import {
 
 import { Ionicons } from '@expo/vector-icons';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import images from '@/assets/images'; // Adjust the path as necessary
 
 
 export default function ProfileScreen() {
@@ -30,7 +31,7 @@ export default function ProfileScreen() {
         <View style={styles.accountSection}>
           <View style={styles.profileImageContainer}>
             <Image 
-              source={require('../../assets/images/potato.png')}
+              source={images.logo}
               style={styles.profileImage} 
             />
           </View>
@@ -49,7 +50,7 @@ export default function ProfileScreen() {
         <View style={styles.surveyBanner}>
           <View style={styles.surveyContent}>
             <Image 
-              source={require('../../assets/images/potato.png')}
+              source={images.profilePlaceholder}
               style={styles.farmerImage} 
             />
             <View style={styles.surveyTextContainer}>
