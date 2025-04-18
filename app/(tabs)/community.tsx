@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { Platform } from 'react-native';
+import Header from '@/components/Header';
 
 // Mock data for posts
 const posts = [
@@ -42,6 +43,7 @@ export default function CommunityScreen() {
   return (
     <SafeAreaView style={styles.container}>
       {/* Header with search */}
+      <Header/>
       <View style={styles.header}>
         <View style={styles.searchContainer}>
           <Ionicons name="search" size={20} color="#666" style={styles.searchIcon} />
