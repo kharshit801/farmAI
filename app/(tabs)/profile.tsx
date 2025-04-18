@@ -1,303 +1,255 @@
-import React from 'react';
-import { 
-  Image, 
-  StyleSheet, 
-  Text, 
-  View, 
-  SafeAreaView, 
+import React from "react";
+import {
+  Image,
+  StyleSheet,
+  Text,
+  View,
+  SafeAreaView,
   TouchableOpacity,
-  ScrollView
-} from 'react-native';
+  ScrollView,
+} from "react-native";
 
-import { Ionicons } from '@expo/vector-icons';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import images from '@/assets/images'; // Adjust the path as necessary
-
+import { Ionicons } from "@expo/vector-icons";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import images from "@/assets/images";
+import Header from "@/components/Header";
 
 export default function ProfileScreen() {
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Planta</Text>
-        <TouchableOpacity style={styles.menuButton}>
-          <Text style={styles.menuDots}>•••</Text>
-        </TouchableOpacity>
-      </View>
+      <Header/>
       
       {/* Content */}
-      <ScrollView style={styles.content}>
+      <ScrollView contentContainerStyle={styles.contentContainer}>
         {/* Account Section */}
         <View style={styles.accountSection}>
-          <View style={styles.profileImageContainer}>
-            <Image 
-              source={images.logo}
-              style={styles.profileImage} 
-            />
-          </View>
-          
+          <Image source={images.profilePlaceholder} style={styles.profileImage} />
           <View style={styles.accountInfo}>
-            <Text style={styles.accountTitle}>Your account</Text>
-            <Text style={styles.communityText}>Join Planta Community</Text>
-            
+            <Text style={styles.accountTitle}>Your Account</Text>
+            <Text style={styles.communityText}>Join the Planta Community</Text>
             <TouchableOpacity style={styles.signInButton}>
-              <Text style={styles.signInText}>Sign in</Text>
+              <Text style={styles.signInText}>Sign In</Text>
             </TouchableOpacity>
           </View>
         </View>
-        
+
         {/* Survey Banner */}
         <View style={styles.surveyBanner}>
-          <View style={styles.surveyContent}>
-            <Image 
-              source={images.profilePlaceholder}
-              style={styles.farmerImage} 
-            />
-            <View style={styles.surveyTextContainer}>
-              <Text style={styles.surveyTitle}>Help us make a better app for your farming needs.</Text>
-              <TouchableOpacity style={styles.surveyButton}>
-                <Text style={styles.surveyButtonText}>Take a survey</Text>
-              </TouchableOpacity>
-            </View>
+          <Image source={images.tea} style={styles.bannerImage} />
+          <View style={styles.surveyTextContainer}>
+            <Text style={styles.surveyTitle}>
+              Help us improve Planta for your farming needs.
+            </Text>
+            <TouchableOpacity style={styles.surveyButton}>
+              <Text style={styles.surveyButtonText}>Take a Survey</Text>
+            </TouchableOpacity>
           </View>
           <TouchableOpacity style={styles.closeButton}>
             <Text style={styles.closeButtonText}>✕</Text>
           </TouchableOpacity>
         </View>
-        
+
         {/* Grow Smart Section */}
-        <View style={styles.growSmartSection}>
-          <Image 
-            source={require('../../assets/images/potato.png')}
-            style={styles.leafLogo} 
-          />
-          <View style={styles.growSmartTextContainer}>
-            <Text style={styles.growSmartTitle}>Grow smart together!</Text>
-            <Text style={styles.growSmartDescription}>
-              Share Planta and help farmers solve their plant problems.
+        <View style={styles.sectionCard}>
+          <Image source={images.logo} style={styles.logoImage} />
+          <View style={styles.sectionTextContainer}>
+            <Text style={styles.sectionTitle}>Grow Smart Together</Text>
+            <Text style={styles.sectionDescription}>
+              Share Planta and help farmers solve plant problems.
             </Text>
           </View>
-          <TouchableOpacity style={styles.shareButton}>
+          <TouchableOpacity>
             <Text style={styles.shareButtonText}>Share Planta</Text>
           </TouchableOpacity>
         </View>
-        
+
         {/* Feedback Section */}
-        <View style={styles.feedbackSection}>
+        <View style={styles.sectionCard}>
           <View style={styles.feedbackIconContainer}>
-          <MaterialIcons name="feedback" size={24} color="black" />
-            
+            <MaterialIcons name="feedback" size={28} color="#2e8b76" />
           </View>
-          <View style={styles.feedbackTextContainer}>
-            <Text style={styles.feedbackTitle}>How is your experience with Planta app?</Text>
-            <Text style={styles.feedbackDescription}>
+          <View style={styles.sectionTextContainer}>
+            <Text style={styles.sectionTitle}>Enjoying Planta?</Text>
+            <Text style={styles.sectionDescription}>
               We'd love to hear your thoughts and suggestions.
             </Text>
           </View>
         </View>
+
+        {/* Contact Us Button */}
+        <TouchableOpacity style={styles.contactButton}>
+          <Text style={styles.contactButtonText}>Contact Us</Text>
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
 }
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-    backgroundColor: '#fff',
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#333',
+    backgroundColor: "#f2f2f2",
   },
   menuButton: {
-    padding: 5,
+    padding: 10,
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    backgroundColor: "#fff",
+    elevation: 2,
+    shadowColor: "#ccc",
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#2e8b76",
   },
   menuDots: {
     fontSize: 24,
-    color: '#333',
-    fontWeight: 'bold',
+    fontWeight: "bold",
+    color: "#333",
   },
-  content: {
-    flex: 1,
+  contentContainer: {
+    paddingBottom: 100,
   },
   accountSection: {
-    flexDirection: 'row',
+    flexDirection: "row",
+    backgroundColor: "#fff",
     padding: 20,
-    backgroundColor: '#fff',
-    alignItems: 'center',
+    alignItems: "center",
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  profileImageContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 10,
-    backgroundColor: '#e0f2f1',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 15,
-    overflow: 'hidden',
+    borderColor: "#e0e0e0",
   },
   profileImage: {
-    width: 70,
-    height: 70,
+    width: 80,
+    height: 90,
+    borderRadius: 10,
+    marginRight: 15,
   },
   accountInfo: {
     flex: 1,
   },
   accountTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 5,
+    fontWeight: "700",
+    color: "#333",
   },
   communityText: {
-    fontSize: 16,
-    color: '#555',
-    marginBottom: 15,
+    fontSize: 14,
+    color: "#666",
+    marginVertical: 5,
   },
   signInButton: {
     borderWidth: 1,
-    borderColor: '#2e8b76',
+    borderColor: "#2e8b76",
     borderRadius: 25,
-    paddingVertical: 12,
-    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    marginTop: 5,
   },
   signInText: {
-    color: '#2e8b76',
-    fontSize: 16,
-    fontWeight: '600',
+    color: "#2e8b76",
+    fontWeight: "600",
   },
   surveyBanner: {
-    backgroundColor: '#b2dfdb',
+    flexDirection: "row",
+    backgroundColor: "#d0f0ec",
+    borderRadius: 10,
     padding: 15,
-    marginTop: 15,
-    borderRadius: 5,
-    marginHorizontal: 15,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    margin: 15,
+    alignItems: "center",
+    position: "relative",
   },
-  surveyContent: {
-    flexDirection: 'row',
-    flex: 1,
-  },
-  farmerImage: {
-    width: 80,
-    height: 100,
+  bannerImage: {
+    width: 70,
+    height: 70,
+    borderRadius: 10,
   },
   surveyTextContainer: {
     flex: 1,
-    paddingLeft: 10,
-    justifyContent: 'center',
+    paddingHorizontal: 10,
   },
   surveyTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 15,
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#333",
+    marginBottom: 8,
   },
   surveyButton: {
-    backgroundColor: '#fff',
-    borderRadius: 25,
-    paddingVertical: 12,
-    alignItems: 'center',
+    backgroundColor: "#fff",
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 20,
+    alignSelf: "flex-start",
   },
   surveyButtonText: {
-    color: '#333',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#2e8b76",
   },
   closeButton: {
-    width: 24,
-    height: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
+    position: "absolute",
+    top: 10,
+    right: 10,
   },
   closeButtonText: {
-    fontSize: 20,
-    color: '#333',
+    fontSize: 18,
+    color: "#555",
   },
-  growSmartSection: {
-    backgroundColor: '#fff',
+  sectionCard: {
+    backgroundColor: "#fff",
     padding: 20,
-    marginTop: 15,
-    borderRadius: 5,
     marginHorizontal: 15,
-    flexDirection: 'row',
-    alignItems: 'center',
+    marginTop: 15,
+    borderRadius: 10,
+    flexDirection: "row",
+    alignItems: "center",
   },
-  leafLogo: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+  logoImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 10,
   },
-  growSmartTextContainer: {
+  sectionTextContainer: {
     flex: 1,
-    paddingHorizontal: 15,
+    marginHorizontal: 15,
   },
-  growSmartTitle: {
+  sectionTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: "600",
+    color: "#2e8b76",
     marginBottom: 5,
   },
-  growSmartDescription: {
+  sectionDescription: {
     fontSize: 14,
-    color: '#555',
-  },
-  shareButton: {
-    marginLeft: 10,
+    color: "#555",
   },
   shareButtonText: {
-    color: '#2e8b76',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  feedbackSection: {
-    backgroundColor: '#fff',
-    padding: 20,
-    marginTop: 15,
-    borderRadius: 5,
-    marginHorizontal: 15,
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
+    color: "#2e8b76",
+    fontWeight: "600",
   },
   feedbackIconContainer: {
-    width: 60,
-    height: 60,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: "#d0f0ec",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  contactButton: {
+    margin: 20,
+    backgroundColor: "#2e8b76",
+    paddingVertical: 15,
     borderRadius: 30,
-    backgroundColor: '#e0f2f1',
-    justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: "center",
   },
-  feedbackIcon: {
-    width: 30,
-    height: 30,
-  },
-  feedbackTextContainer: {
-    flex: 1,
-    paddingLeft: 15,
-  },
-  feedbackTitle: {
+  contactButtonText: {
+    color: "#fff",
     fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 5,
+    fontWeight: "bold",
   },
-  feedbackDescription: {
-    fontSize: 14,
-    color: '#555',
-  }
 });
