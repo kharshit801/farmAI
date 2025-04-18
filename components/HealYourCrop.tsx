@@ -1,10 +1,79 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Alert } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import LottieView from 'lottie-react-native';
-import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
 import PrimaryButton from './PrimaryButton';
+import { useDiagnosis } from '../context/DiagnosisContext';
+import { useRouter } from 'expo-router';
+import {
+  widthPercentageToDP as wp,
+  heightPercentageToDP as hp,
+} from 'react-native-responsive-screen';
 
 const HealYourCrop: React.FC = () => {
+  const router = useRouter();
+  const { setDiagnosisData } = useDiagnosis(); 
+
+  const openCamera = async () => {
+    try {
+      // Request camera permissions
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permission Denied', 'Camera access is required to take a picture.');
+        return;
+      }
+
+      // Launch camera
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 1,
+      });
+
+      // Handle image capture result
+      if (!result.canceled && result.assets?.length > 0) {
+        const uri = result.assets[0].uri;
+        console.log('Image captured:', uri);
+
+        // Create form data for API request
+        const formData = new FormData();
+        formData.append('file', {
+          uri: uri,
+          name: 'photo.jpg',
+          type: 'image/jpeg',
+        } as unknown as Blob);
+
+        console.log('Uploading image to API...');
+        
+        // Send image to API
+        const response = await fetch('https://flashapp-9zcw.onrender.com/predict', {
+          method: 'POST',
+          body: formData,
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+        
+        console.log('Response status:', response.status);
+        const data = await response.json();
+        console.log('API response data:', data);
+        
+        // Extract the "class" property from the response instead of "result"
+        setDiagnosisData({
+          imageUri: uri,
+          result: data.class || 'No result found.',  // Use data.class instead of data.result
+        });
+
+        console.log('Navigating to prediction result screen...');
+        // Navigate to the prediction result screen
+        router.push('/Predictionresult');
+      }
+    } catch (error) {
+      console.error('Upload Error:', error);
+      Alert.alert('Error', `Failed to process your image: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
   return (
     <View style={styles.sectionContainer}>
       <Text style={styles.sectionTitle}>Heal your crop</Text>
@@ -12,7 +81,7 @@ const HealYourCrop: React.FC = () => {
         <View style={styles.healStep}>
           <View style={styles.healStepIcon}>
             <LottieView
-              source={require('../assets/lottie/camera.json')} // Replace with your camera Lottie file
+              source={require('../assets/lottie/camera.json')}
               autoPlay
               loop
               style={styles.lottieIcon}
@@ -21,7 +90,7 @@ const HealYourCrop: React.FC = () => {
           <Text style={styles.healStepText}>Take a picture</Text>
         </View>
         <LottieView
-          source={require('../assets/lottie/arrow.json')} // Replace with your arrow Lottie file
+          source={require('../assets/lottie/arrow.json')}
           autoPlay
           loop
           style={styles.lottieArrow}
@@ -29,7 +98,7 @@ const HealYourCrop: React.FC = () => {
         <View style={styles.healStep}>
           <View style={styles.healStepIcon}>
             <LottieView
-              source={require('../assets/lottie/document.json')} // Replace with your document Lottie file
+              source={require('../assets/lottie/document.json')}
               autoPlay
               loop
               style={styles.lottieIcon}
@@ -38,7 +107,7 @@ const HealYourCrop: React.FC = () => {
           <Text style={styles.healStepText}>See diagnosis</Text>
         </View>
         <LottieView
-          source={require('../assets/lottie/arrow.json')} // Replace with your arrow Lottie file
+          source={require('../assets/lottie/arrow.json')}
           autoPlay
           loop
           style={styles.lottieArrow}
@@ -46,7 +115,7 @@ const HealYourCrop: React.FC = () => {
         <View style={styles.healStep}>
           <View style={styles.healStepIcon}>
             <LottieView
-              source={require('../assets/lottie/medicine.json')} // Replace with your medicine bottle Lottie file
+              source={require('../assets/lottie/medicine.json')}
               autoPlay
               loop
               style={styles.lottieIcon}
@@ -55,7 +124,7 @@ const HealYourCrop: React.FC = () => {
           <Text style={styles.healStepText}>Get medicine</Text>
         </View>
       </View>
-      <PrimaryButton title="Take a picture" />
+      <PrimaryButton title="Take a picture" onPress={openCamera} />
     </View>
   );
 };
@@ -105,7 +174,7 @@ const styles = StyleSheet.create({
   },
   lottieArrow: {
     width: wp('16%'),
-    height: wp('16 %'),
+    height: wp('16%'),
   },
   healStepText: {
     fontSize: wp('3.5%'),
