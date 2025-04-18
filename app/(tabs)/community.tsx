@@ -21,7 +21,7 @@ const posts = [
     location: 'India',
     time: '5 h',
     title: 'Help identifying problem with my Apple',
-    content: 'Plantix has detected a possible problem with my Apple. I was given a few possibilities: Powdery Mildew or Healthy. Can you help me identifying the issue?',
+    content: 'Planta has detected a possible problem with my Apple. I was given a few possibilities: Powdery Mildew or Healthy. Can you help me identifying the issue?',
     // image: require('./assets/apple-plant.jpg'), // You'll need to add your own image
     likes: 0,
     dislikes: 0,

@@ -9,7 +9,6 @@ import {
   ScrollView
 } from 'react-native';
 
-import images from '@assets/images'; 
 import { Ionicons } from '@expo/vector-icons';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
@@ -19,7 +18,7 @@ export default function ProfileScreen() {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Plantix</Text>
+        <Text style={styles.headerTitle}>Planta</Text>
         <TouchableOpacity style={styles.menuButton}>
           <Text style={styles.menuDots}>•••</Text>
         </TouchableOpacity>
@@ -31,14 +30,14 @@ export default function ProfileScreen() {
         <View style={styles.accountSection}>
           <View style={styles.profileImageContainer}>
             <Image 
-              source={images.profilePlaceholder} 
+              source={require('../../assets/images/potato.png')}
               style={styles.profileImage} 
             />
           </View>
           
           <View style={styles.accountInfo}>
             <Text style={styles.accountTitle}>Your account</Text>
-            <Text style={styles.communityText}>Join Plantix Community</Text>
+            <Text style={styles.communityText}>Join Planta Community</Text>
             
             <TouchableOpacity style={styles.signInButton}>
               <Text style={styles.signInText}>Sign in</Text>
@@ -50,7 +49,7 @@ export default function ProfileScreen() {
         <View style={styles.surveyBanner}>
           <View style={styles.surveyContent}>
             <Image 
-              source={images.logo} 
+              source={require('../../assets/images/potato.png')}
               style={styles.farmerImage} 
             />
             <View style={styles.surveyTextContainer}>
@@ -68,17 +67,17 @@ export default function ProfileScreen() {
         {/* Grow Smart Section */}
         <View style={styles.growSmartSection}>
           <Image 
-            source={images.leaf} 
+            source={require('../../assets/images/potato.png')}
             style={styles.leafLogo} 
           />
           <View style={styles.growSmartTextContainer}>
             <Text style={styles.growSmartTitle}>Grow smart together!</Text>
             <Text style={styles.growSmartDescription}>
-              Share Plantix and help farmers solve their plant problems.
+              Share Planta and help farmers solve their plant problems.
             </Text>
           </View>
           <TouchableOpacity style={styles.shareButton}>
-            <Text style={styles.shareButtonText}>Share Plantix</Text>
+            <Text style={styles.shareButtonText}>Share Planta</Text>
           </TouchableOpacity>
         </View>
         
@@ -89,7 +88,7 @@ export default function ProfileScreen() {
             
           </View>
           <View style={styles.feedbackTextContainer}>
-            <Text style={styles.feedbackTitle}>How is your experience with Plantix app?</Text>
+            <Text style={styles.feedbackTitle}>How is your experience with Planta app?</Text>
             <Text style={styles.feedbackDescription}>
               We'd love to hear your thoughts and suggestions.
             </Text>
