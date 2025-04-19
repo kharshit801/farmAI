@@ -1,4 +1,4 @@
-import logo from './logoPlanta.png';
+import logo from './logoFarm.png';
 import profilePlaceholder from './profile-placeholder.png';
 import leaf from './leaf.png';
 

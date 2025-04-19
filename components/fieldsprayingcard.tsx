@@ -57,7 +57,7 @@ const SprayingTimeCard: React.FC<SprayingCardProps> = ({ weatherData }) => {
       recommendation: '',
       suitability: 'Poor',
       icon: 'alert-circle',
-      color: '#EF4444', // Red for poor conditions
+      color: '#FF6B6B', // Red for poor conditions
       details: ''
     };
 
@@ -66,13 +66,13 @@ const SprayingTimeCard: React.FC<SprayingCardProps> = ({ weatherData }) => {
       newRecommendation.suitability = 'Not Recommended';
       newRecommendation.recommendation = 'Too cold for spraying';
       newRecommendation.icon = 'snow';
-      newRecommendation.color = '#6B7280'; // Gray
+      newRecommendation.color = '#8B9D83'; // Muted green-gray
       newRecommendation.details = 'Low temperatures reduce chemical efficacy';
     } else if (temp > 30) {
       newRecommendation.suitability = 'Poor';
       newRecommendation.recommendation = 'Too hot for optimal spraying';
       newRecommendation.icon = 'thermometer';
-      newRecommendation.color = '#EF4444'; // Red
+      newRecommendation.color = '#FF6B6B'; // Red
       newRecommendation.details = 'Chemical evaporation risk is high';
     } else if (temp >= 10 && temp <= 25) {
       // Wind conditions
@@ -80,7 +80,7 @@ const SprayingTimeCard: React.FC<SprayingCardProps> = ({ weatherData }) => {
         newRecommendation.suitability = 'Not Recommended';
         newRecommendation.recommendation = 'Wind too strong for spraying';
         newRecommendation.icon = 'speedometer';
-        newRecommendation.color = '#6B7280'; // Gray
+        newRecommendation.color = '#8B9D83'; // Muted green-gray
         newRecommendation.details = 'High drift risk, wait for calmer conditions';
       } 
       // Weather conditions
@@ -88,13 +88,13 @@ const SprayingTimeCard: React.FC<SprayingCardProps> = ({ weatherData }) => {
         newRecommendation.suitability = 'Not Recommended';
         newRecommendation.recommendation = 'Rainfall prevents effective spraying';
         newRecommendation.icon = 'rainy';
-        newRecommendation.color = '#6B7280'; // Gray
+        newRecommendation.color = '#8B9D83'; // Muted green-gray
         newRecommendation.details = 'Rain will wash away chemicals';
       } else if (humidity < 40) {
         newRecommendation.suitability = 'Fair';
         newRecommendation.recommendation = 'Low humidity may affect spray';
         newRecommendation.icon = 'water-outline';
-        newRecommendation.color = '#F59E0B'; // Amber
+        newRecommendation.color = '#86A873'; // Lighter accent green
         newRecommendation.details = 'Consider early morning application';
         newRecommendation.startTime = '6:00 AM';
         newRecommendation.endTime = '9:00 AM';
@@ -102,7 +102,7 @@ const SprayingTimeCard: React.FC<SprayingCardProps> = ({ weatherData }) => {
         newRecommendation.suitability = 'Excellent';
         newRecommendation.recommendation = 'Ideal conditions for spraying';
         newRecommendation.icon = 'checkmark-circle';
-        newRecommendation.color = '#10B981'; // Green
+        newRecommendation.color = '#6A994E'; // Main accent green
         newRecommendation.details = 'Optimal temperature and humidity';
         
         // Set recommended time window based on temperature
@@ -117,7 +117,7 @@ const SprayingTimeCard: React.FC<SprayingCardProps> = ({ weatherData }) => {
         newRecommendation.suitability = 'Good';
         newRecommendation.recommendation = 'Good conditions for spraying';
         newRecommendation.icon = 'thumbs-up';
-        newRecommendation.color = '#3B82F6'; // Blue
+        newRecommendation.color = '#7DAC60'; // Slightly lighter accent green
         newRecommendation.startTime = '6:00 AM';
         newRecommendation.endTime = '11:00 AM';
         newRecommendation.details = 'Acceptable wind and humidity levels';
@@ -127,7 +127,7 @@ const SprayingTimeCard: React.FC<SprayingCardProps> = ({ weatherData }) => {
       newRecommendation.suitability = 'Fair';
       newRecommendation.recommendation = 'Consider early morning spraying';
       newRecommendation.icon = 'time-outline';
-      newRecommendation.color = '#F59E0B'; // Amber
+      newRecommendation.color = '#86A873'; // Lighter accent green
       newRecommendation.startTime = '6:00 AM';
       newRecommendation.endTime = '9:00 AM';
       newRecommendation.details = 'Spray early to avoid heat of the day';
@@ -160,7 +160,7 @@ const SprayingTimeCard: React.FC<SprayingCardProps> = ({ weatherData }) => {
       
       {(recommendation.startTime && recommendation.endTime) && (
         <View style={styles.timeContainer}>
-          <Ionicons name="time-outline" size={wp('4%')} color="#6B7280" style={styles.timeIcon} />
+          <Ionicons name="time-outline" size={wp('4%')} color="#6A994E" style={styles.timeIcon} />
           <Text style={styles.timeText}>Best time: {recommendation.startTime} - {recommendation.endTime}</Text>
         </View>
       )}
@@ -224,16 +224,16 @@ const styles = StyleSheet.create({
   },
   timeText: {
     fontSize: wp('3.5%'),
-    color: '#6B7280',
+    color: '#6A994E',
   },
   detailsText: {
     fontSize: wp('3.5%'),
-    color: '#6B7280',
+    color: '#6A994E',
     marginTop: hp('1%'),
   },
   noDataText: {
     fontSize: wp('4%'),
-    color: '#6B7280',
+    color: '#6A994E',
     textAlign: 'center',
   }
 });

@@ -5,7 +5,7 @@ import * as Location from 'expo-location';
 import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
 
 // API key
-const OPENWEATHERMAP_API_KEY = '5942ca62c79ba3159881b814558fb0ae';
+const OPENWEATHERMAP_API_KEY = '9b6c4cb5fdfbb32c676662876f6fe634';
 
 type WeatherData = {
   main: {
@@ -183,7 +183,7 @@ const WeatherCard: React.FC = () => {
         newRecommendation.suitability = 'Excellent';
         newRecommendation.recommendation = 'Ideal conditions for spraying';
         newRecommendation.icon = 'checkmark-circle';
-        newRecommendation.color = '#10B981'; // Green
+        newRecommendation.color = '#6A994E'; // Green
         newRecommendation.details = 'Optimal temperature and humidity';
         
         // Set recommended time window based on temperature
@@ -208,7 +208,7 @@ const WeatherCard: React.FC = () => {
       newRecommendation.suitability = 'Fair';
       newRecommendation.recommendation = 'Consider early morning spraying';
       newRecommendation.icon = 'time-outline';
-      newRecommendation.color = '#F59E0B'; // Amber
+      newRecommendation.color = '#6A994E'; // Amber
       newRecommendation.startTime = '6:00 AM';
       newRecommendation.endTime = '9:00 AM';
       newRecommendation.details = 'Spray early to avoid heat of the day';

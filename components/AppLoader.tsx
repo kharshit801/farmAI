@@ -67,7 +67,7 @@ export default function AppLoader({
     return (
       <View style={styles.container}>
         <ActivityIndicator size="large" color="#75BB59" />
-        <ThemedText style={styles.text}>Loading Planta...</ThemedText>
+        <ThemedText style={styles.text}>Loading FarmAI...</ThemedText>
       </View>
     );
   }

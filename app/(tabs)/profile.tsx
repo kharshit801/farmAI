@@ -9,10 +9,11 @@ import {
   ScrollView,
 } from "react-native";
 
-import { Ionicons } from "@expo/vector-icons";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import images from "@/assets/images";
 import Header from "@/components/Header";
+import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
+
 
 export default function ProfileScreen() {
   return (
@@ -24,10 +25,10 @@ export default function ProfileScreen() {
       <ScrollView contentContainerStyle={styles.contentContainer}>
         {/* Account Section */}
         <View style={styles.accountSection}>
-          <Image source={images.profilePlaceholder} style={styles.profileImage} />
-          <View style={styles.accountInfo}>
+        <Ionicons name={"person"} size={32} color={"#1f1f1f"} />
+        <View style={styles.accountInfo}>
             <Text style={styles.accountTitle}>Your Account</Text>
-            <Text style={styles.communityText}>Join the Planta Community</Text>
+            <Text style={styles.communityText}>Join the FarmAI Community</Text>
             <TouchableOpacity style={styles.signInButton}>
               <Text style={styles.signInText}>Sign In</Text>
             </TouchableOpacity>
@@ -35,11 +36,11 @@ export default function ProfileScreen() {
         </View>
 
         {/* Survey Banner */}
-        <View style={styles.surveyBanner}>
+        {/* <View style={styles.surveyBanner}>
           <Image source={images.tea} style={styles.bannerImage} />
           <View style={styles.surveyTextContainer}>
             <Text style={styles.surveyTitle}>
-              Help us improve Planta for your farming needs.
+              Help us improve FarnAI for your farming needs.
             </Text>
             <TouchableOpacity style={styles.surveyButton}>
               <Text style={styles.surveyButtonText}>Take a Survey</Text>
@@ -48,7 +49,7 @@ export default function ProfileScreen() {
           <TouchableOpacity style={styles.closeButton}>
             <Text style={styles.closeButtonText}>✕</Text>
           </TouchableOpacity>
-        </View>
+        </View> */}
 
         {/* Grow Smart Section */}
         <View style={styles.sectionCard}>
@@ -56,11 +57,11 @@ export default function ProfileScreen() {
           <View style={styles.sectionTextContainer}>
             <Text style={styles.sectionTitle}>Grow Smart Together</Text>
             <Text style={styles.sectionDescription}>
-              Share Planta and help farmers solve plant problems.
+              Share FarmAI and help farmers solve plant problems.
             </Text>
           </View>
           <TouchableOpacity>
-            <Text style={styles.shareButtonText}>Share Planta</Text>
+            <Text style={styles.shareButtonText}>Share FarmAI</Text>
           </TouchableOpacity>
         </View>
 
@@ -70,7 +71,7 @@ export default function ProfileScreen() {
             <MaterialIcons name="feedback" size={28} color="#2e8b76" />
           </View>
           <View style={styles.sectionTextContainer}>
-            <Text style={styles.sectionTitle}>Enjoying Planta?</Text>
+            <Text style={styles.sectionTitle}>Enjoying FarmAI?</Text>
             <Text style={styles.sectionDescription}>
               We'd love to hear your thoughts and suggestions.
             </Text>
@@ -242,7 +243,7 @@ const styles = StyleSheet.create({
   },
   contactButton: {
     margin: 20,
-    backgroundColor: "#2e8b76",
+    backgroundColor: "#6A994E",
     paddingVertical: 15,
     borderRadius: 30,
     alignItems: "center",

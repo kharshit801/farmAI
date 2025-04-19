@@ -24,7 +24,7 @@ const PrimaryButton: React.FC<PrimaryButtonProps> = ({ title, onPress, style, di
 
 const styles = StyleSheet.create({
   primaryButton: {
-    backgroundColor: '#3563EB',
+    backgroundColor: '#6A994E',
     borderRadius: wp('2%'),
     paddingVertical: hp('2%'),
     paddingHorizontal: wp('4%'),

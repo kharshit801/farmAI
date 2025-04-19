@@ -157,7 +157,7 @@ export default function ShopScreenComponent() {
       "The Plant Nutrition Store",
       "Green Earth Supplies",
       "Countryside Garden Center",
-      "Planta Organic Supplies",
+      "FarmAI Organic Supplies",
       "Agrochemicals & More",
       "GrowWell Garden Supplies",
     ];
@@ -453,7 +453,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 16,
-    paddingTop: Platform.OS === "ios" ? 44 : 16,
   },
   headerTitle: {
     fontSize: 22,
@@ -534,7 +533,7 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   directionsButton: {
-    backgroundColor: "#4CAF50",
+    backgroundColor: "#6A994E",
     borderRadius: 8,
     paddingVertical: 10,
     paddingHorizontal: 16,

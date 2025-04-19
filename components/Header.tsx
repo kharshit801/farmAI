@@ -10,11 +10,11 @@ const Header: React.FC<HeaderProps> = ({ title }) => {
   return (
     <View style={styles.header}>
       <Image 
-        source={require('../assets/images/logoPlanta.png')} 
+        source={require('../assets/images/logoFarm.png')} 
         style={styles.logo} 
         resizeMode="contain"
       />
-      <Text style={styles.headerTitle}>{title || 'PLANTA'}</Text>
+      <Text style={styles.headerTitle}>{title || 'FarmAI'}</Text>
     </View>
   );
 };

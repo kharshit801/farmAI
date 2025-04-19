@@ -1,13 +1,13 @@
-// components/PlantaLogo.tsx
+// components/FarmAi.tsx
 import React, { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, View, Easing, Image } from 'react-native';
 
-type PlantaLogoProps = {
+type FarmAILogoProps = {
   size?: number;
   animated?: boolean;
 };
 
-export default function PlantaLogo({ size = 120, animated = true }: PlantaLogoProps) {
+export default function FarmAI({ size = 120, animated = true }: FarmAILogoProps) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
 
@@ -65,7 +65,7 @@ export default function PlantaLogo({ size = 120, animated = true }: PlantaLogoPr
         ]}
       >
         <Image
-          source={require('../assets/images/logoPlanta.png')}
+          source={require('../assets/images/logoFarm.png')}
           style={{ width: size * 0.8, height: size * 0.8 }}
           resizeMode="contain"
         />

@@ -95,7 +95,7 @@ export default function RootLayout() {
     <DiagnosisProvider>
       
     <LocationContext.Provider value={{ location, errorMsg, requestLocationPermission }}>
-      <AnimatedSplashScreen image={require('../assets/images/logoPlanta.png')}>
+      <AnimatedSplashScreen image={require('../assets/images/logoFarm.png')}>
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
           <Stack screenOptions={{ headerShown: false }} />
         </ThemeProvider>

@@ -26,8 +26,8 @@ const PLACEHOLDER_API_KEY_STRING = "YOUR_JULEP_API_KEY_HERE";
 
 
 const julepTaskDefinition = {
-  name: 'Planta Chat Response',
-  description: 'Get a response from the Planta chatbot agent based on user input',
+  name: 'FarmAI Chat Response',
+  description: 'Get a response from the FarmAI chatbot agent based on user input',
   main: [
     {
       type: 'prompt',
@@ -145,7 +145,7 @@ export default function ChatbotScreen() {
     >
       <SafeAreaView style={styles.container}>
         <Header/>
-        <Stack.Screen options={{ title: 'Planta Chatbot' }} />
+        <Stack.Screen options={{ title: 'FarmAI Chatbot' }} />
         <FlatList
           ref={flatListRef}
           data={messages}

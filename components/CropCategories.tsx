@@ -74,7 +74,7 @@ const styles = StyleSheet.create({
     width: wp('17%'),
     height: wp('17%'),
     borderRadius: wp('8.5%'),
-    backgroundColor: '#2563EB',
+    backgroundColor: '#1f1f1f',
     justifyContent: 'center',
     alignItems: 'center',
     marginHorizontal: wp('2%'),

@@ -105,7 +105,7 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Home',
-          headerTitle: 'Planta',
+          headerTitle: 'FarmAI',
         }}
       />
       <Tabs.Screen

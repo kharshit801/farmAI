@@ -17,7 +17,7 @@ import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-na
 import Colors from '../constants/Colors';
 
 // Mock map image
-const MOCK_MAP_IMAGE = require('../assets/images/splashScreenPlanta.png');
+const MOCK_MAP_IMAGE = require('../assets/images/logoFarmAI.png');
 
 // Crop suggestions
 const CROP_SUGGESTIONS = [

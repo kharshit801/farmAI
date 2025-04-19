@@ -8,13 +8,77 @@ import {
   Alert,
   TouchableOpacity,
   Platform,
-  SafeAreaView // Import SafeAreaView
+  SafeAreaView
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColor } from '@/hooks/useThemeColor';
-import Header from "@/components/Header"; // Assuming your Header component is here
+import Header from "@/components/Header";
+
+// Sample data for Prayagraj region
+const SAMPLE_MANDI_DATA = [
+  {
+    state: "Uttar Pradesh",
+    district: "Prayagraj",
+    market: "Naini Mandi",
+    commodity: "Wheat",
+    variety: "Sharbati",
+    arrival_date: "2024-02-15",
+    min_price: "2200",
+    max_price: "2800", 
+    modal_price: "2500",
+    distance: 3.2
+  },
+  {
+    state: "Uttar Pradesh",
+    district: "Prayagraj",
+    market: "Civil Lines Market",
+    commodity: "Rice",
+    variety: "Basmati",
+    arrival_date: "2024-02-15",
+    min_price: "3500",
+    max_price: "4200",
+    modal_price: "3800",
+    distance: 1.5
+  },
+  {
+    state: "Uttar Pradesh", 
+    district: "Prayagraj",
+    market: "Mundera Mandi",
+    commodity: "Potato",
+    variety: "Local",
+    arrival_date: "2024-02-15",
+    min_price: "800",
+    max_price: "1200",
+    modal_price: "1000",
+    distance: 5.8
+  },
+  {
+    state: "Uttar Pradesh",
+    district: "Prayagraj",
+    market: "Phulpur Market",
+    commodity: "Onion",
+    variety: "Red",
+    arrival_date: "2024-02-15", 
+    min_price: "1500",
+    max_price: "2000",
+    modal_price: "1800",
+    distance: 8.4
+  },
+  {
+    state: "Uttar Pradesh",
+    district: "Prayagraj",
+    market: "Jhunsi Mandi",
+    commodity: "Mustard",
+    variety: "Yellow",
+    arrival_date: "2024-02-15",
+    min_price: "4500",
+    max_price: "5500",
+    modal_price: "5000",
+    distance: 4.2
+  }
+];
 
 // Define the structure of a Mandi item from the API
 interface Mandi {
@@ -22,12 +86,11 @@ interface Mandi {
   district: string;
   market: string;
   commodity: string;
-  variety?: string; // Variety is sometimes null or 'NULL' in the data
+  variety?: string;
   arrival_date: string;
-  min_price: string; // API returns strings, potentially
-  max_price: string; // API returns strings, potentially
-  modal_price: string; // API returns strings, potentially
-  // Add a property for calculated distance (optional, might not be available)
+  min_price: string;
+  max_price: string;
+  modal_price: string;
   distance?: number;
 }
 
@@ -101,251 +164,20 @@ const MandiCard = React.memo(({ item }: { item: Mandi }) => {
   );
 });
 
-const LOCATION_FETCH_TIMEOUT = 15000;
-const GEOCODING_PROCESS_LIMIT = 100;
-const API_DATA_LIMIT = 500;
-
-
 export default function MandiScreen() {
-  const [mandis, setMandis] = useState<Mandi[]>([]);
-  const [filteredMandis, setFilteredMandis] = useState<Mandi[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [mandis, setMandis] = useState<Mandi[]>(SAMPLE_MANDI_DATA);
+  const [filteredMandis, setFilteredMandis] = useState<Mandi[]>(SAMPLE_MANDI_DATA);
+  const [loading, setLoading] = useState(false);
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState('distance');
-  const [locationStatus, setLocationStatus] = useState<'idle' | 'granted' | 'denied' | 'failed'>('idle');
-
+  const [locationStatus, setLocationStatus] = useState<'idle' | 'granted' | 'denied' | 'failed'>('granted');
 
   const backgroundColor = useThemeColor({}, 'background') || '#ffffff';
   const textColor = useThemeColor({}, 'text') || '#000000';
 
-
-  useEffect(() => {
-    const getLocationAndFetchData = async () => {
-      setLoading(true);
-      setErrorMsg(null);
-      setLocation(null);
-      setLocationStatus('idle');
-
-      try {
-        console.log("Requesting location permission...");
-        let { status } = await Location.requestForegroundPermissionsAsync();
-
-        if (status !== 'granted') {
-          console.warn("Location permission denied.");
-          setLocationStatus('denied');
-          setErrorMsg('Permission to access location was denied. Cannot sort by distance.');
-           Alert.alert(
-            "Location Permission Denied",
-            "To show nearest mandis, please grant location access in your device settings.",
-            [
-                { text: "OK", onPress: () => {} },
-            ]
-          );
-          await fetchMandiData(null);
-          return;
-        }
-
-        console.log("Location permission granted. Fetching location...");
-        setLocationStatus('granted');
-
-        try {
-          const locationPromise = Location.getCurrentPositionAsync({
-              accuracy: Location.Accuracy.High,
-          });
-
-          const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Location request timed out')), LOCATION_FETCH_TIMEOUT)
-          );
-
-          let currentLocation = await Promise.race([locationPromise, timeoutPromise]) as Location.LocationObject;
-
-          console.log("Location obtained:", currentLocation.coords);
-          setLocation(currentLocation);
-          setLocationStatus('granted');
-
-          await fetchMandiData(currentLocation);
-
-        } catch (locError: any) {
-          console.error("Location fetch error:", locError);
-          setLocationStatus('failed');
-          let specificError = 'Could not get your precise location. Cannot sort by distance.';
-          if (locError.message && locError.message.includes('timed out')) {
-              specificError = 'Location request timed out. Cannot sort by distance.';
-          } else if (locError.message) {
-               specificError = `Location error: ${locError.message}. Cannot sort by distance.`;
-          }
-          setErrorMsg(specificError);
-          await fetchMandiData(null);
-        }
-
-      } catch (overallError) {
-        console.error("Overall setup error (permission/initial fetch):", overallError);
-        setErrorMsg(`Failed to initialize: ${overallError instanceof Error ? overallError.message : 'Unknown error'}`);
-        setLocationStatus('failed');
-        await fetchMandiData(null).catch(err => {
-             console.error("Fallback data fetch failed:", err);
-             setMandis([]);
-             setFilteredMandis([]);
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    getLocationAndFetchData();
-
-  }, []);
-
-
-  const calculateDistance = (lat1: number | undefined, lon1: number | undefined, lat2: number | undefined, lon2: number | undefined): number => {
-    if (lat1 == null || lon1 == null || lat2 == null || lon2 == null ||
-        typeof lat1 !== 'number' || typeof lon1 !== 'number' ||
-        typeof lat2 !== 'number' || typeof lon2 !== 'number' ||
-        !isFinite(lat1) || !isFinite(lon1) || !isFinite(lat2) || !isFinite(lon2)
-    ) {
-      return Infinity;
-    }
-
-    try {
-      const R = 6371;
-      const dLat = deg2rad(lat2 - lat1);
-      const dLon = deg2rad(lon2 - lon1);
-      const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      const d = R * c;
-      return d;
-    } catch (error) {
-      console.error("Distance calculation error:", error);
-      return Infinity;
-    }
-  };
-
-  const deg2rad = (deg: number | undefined): number => {
-     if (deg == null || typeof deg !== 'number' || !isFinite(deg)) {
-         console.warn("Invalid degree value provided for deg2rad:", deg);
-         return 0;
-     }
-    return deg * (Math.PI / 180);
-  };
-
-
-  const getCoordinates = async (placeName: string): Promise<{ latitude: number; longitude: number } | null> => {
-    if (!placeName || typeof placeName !== 'string' || placeName.trim() === '') {
-        console.warn("Invalid placeName provided for geocoding:", placeName);
-        return null;
-    }
-
-    const query = placeName.includes("India") ? placeName : `${placeName}, India`;
-
-    try {
-      const geocodeResult = await Location.geocodeAsync(query);
-
-      if (geocodeResult && geocodeResult.length > 0) {
-        return { latitude: geocodeResult[0].latitude, longitude: geocodeResult[0].longitude };
-      }
-      console.warn("Geocoding returned no results for place:", placeName, "Result:", geocodeResult);
-      return null;
-    } catch (error) {
-      console.error("Geocoding API error for place:", placeName, error);
-      return null;
-    }
-  };
-
-
-  const fetchMandiData = async (userLocation: Location.LocationObject | null) => {
-    try {
-      const apiKey = "579b464db66ec23bdd000001cdd3946e44ce4aad7209ff7b23ac571b";
-      const apiUrl = `https://api.data.gov.in/resource/9ef84268-d588-465a-a308-a864a43d0070?api-key=${apiKey}&format=json&limit=${API_DATA_LIMIT}`;
-
-      console.log("Fetching data from API:", apiUrl);
-      const response = await fetch(apiUrl);
-
-      if (!response.ok) {
-        const errorBody = await response.text();
-        console.error("API Error Response:", errorBody);
-        throw new Error(`API responded with status: ${response.status}.`);
-      }
-
-      const data = await response.json();
-      console.log("API Data fetched:", data?.records?.length, "records");
-
-      if (data && data.records && Array.isArray(data.records)) {
-        let mandiData: Mandi[] = data.records;
-        const processedData: Mandi[] = [];
-        const userCoords = userLocation?.coords;
-
-        if (userCoords && userCoords.latitude != null && userCoords.longitude != null) {
-           console.log("User location available. Processing for distance calculation...");
-          const recordsToProcessCount = Math.min(mandiData.length, GEOCODING_PROCESS_LIMIT);
-
-          for (let i = 0; i < recordsToProcessCount; i++) {
-            const mandi = mandiData[i];
-             if (!mandi || typeof mandi.market !== 'string' || typeof mandi.district !== 'string' || typeof mandi.state !== 'string') {
-                 console.warn("Skipping incomplete mandi record:", mandi);
-                 processedData.push(mandi);
-                 continue;
-             }
-
-            try {
-              const placeName = `${mandi.market}, ${mandi.district}, ${mandi.state}`;
-
-              const coords = await getCoordinates(placeName);
-
-              if (coords) {
-                const distance = calculateDistance(
-                  userCoords.latitude,
-                  userCoords.longitude,
-                  coords.latitude,
-                  coords.longitude
-                );
-                if (isFinite(distance)) {
-                   processedData.push({ ...mandi, distance: parseFloat(distance.toFixed(1)) });
-                } else {
-                   processedData.push(mandi);
-                   console.warn("Distance calculation failed after geocoding for:", mandi);
-                }
-              } else {
-                processedData.push(mandi);
-                console.warn("Geocoding failed, adding item without distance:", mandi);
-              }
-            } catch (processingError) {
-               console.error("Error processing mandi record during geocoding/distance:", mandi, processingError);
-               processedData.push(mandi);
-            }
-          }
-
-          for (let i = recordsToProcessCount; i < mandiData.length; i++) {
-              if (mandiData[i]) {
-                 processedData.push(mandiData[i]);
-              }
-          }
-
-          setMandis(processedData);
-
-        } else {
-           console.log("User location not available or invalid. Adding data without distance calculation.");
-          setMandis(mandiData.filter(item => item != null));
-        }
-
-      } else {
-        console.warn("Invalid API response format or empty records:", data);
-        setErrorMsg("Could not load mandi data due to unexpected API response.");
-        setMandis([]);
-      }
-    } catch (error: any) {
-      console.error("Error fetching or processing mandi data:", error);
-      setErrorMsg(`Failed to load mandi data: ${error.message || 'Unknown error'}`);
-      setMandis([]);
-    } finally {
-    }
-  };
-
   useEffect(() => {
     if (mandis && mandis.length > 0) {
-        console.log(`Sorting ${mandis.length} items by ${activeFilter}...`);
       let sorted = [...mandis];
 
       if (activeFilter === 'distance') {
@@ -363,103 +195,91 @@ export default function MandiScreen() {
       }
 
       setFilteredMandis(sorted);
-      console.log(`Sorting complete. Filtered list updated.`);
-
     } else {
-        setFilteredMandis([]);
-         console.log("Mandis list is empty, clearing filtered list.");
+      setFilteredMandis([]);
     }
-
   }, [activeFilter, mandis]);
 
-
   const renderItem = ({ item }: { item: Mandi }) => {
-     return <MandiCard item={item} />;
+    return <MandiCard item={item} />;
   };
 
   const renderFilterButtons = () => {
-      const isDistanceFilterEnabled = locationStatus === 'granted' && mandis.some(m => m.distance != null && isFinite(m.distance));
-      const isPriceFilterEnabled = mandis.length > 0;
+    const isDistanceFilterEnabled = locationStatus === 'granted' && mandis.some(m => m.distance != null && isFinite(m.distance));
+    const isPriceFilterEnabled = mandis.length > 0;
 
-      if (loading || (mandis.length === 0 && !errorMsg)) {
-          return null;
-      }
+    if (loading || (mandis.length === 0 && !errorMsg)) {
+      return null;
+    }
 
-      return (
-        <View style={styles.filterContainer}>
-          <TouchableOpacity
-            style={[
-                styles.filterButton,
-                activeFilter === 'distance' && styles.activeFilter,
-                !isDistanceFilterEnabled && styles.filterButtonDisabled,
-            ]}
-            onPress={() => setActiveFilter('distance')}
-            disabled={!isDistanceFilterEnabled}
-          >
-            <Ionicons
-              name={activeFilter === 'distance' && isDistanceFilterEnabled ? "location" : "location-outline"}
-              size={16}
-              color={activeFilter === 'distance' && isDistanceFilterEnabled ? '#fff' : (isDistanceFilterEnabled ? '#4CAF50' : '#999')}
-            />
-            <Text style={[
-                styles.filterText,
-                activeFilter === 'distance' && styles.activeFilterText,
-                !isDistanceFilterEnabled && styles.filterTextDisabled
-                ]}
-            >
-              Nearest
-            </Text>
-          </TouchableOpacity>
+    return (
+      <View style={styles.filterContainer}>
+        <TouchableOpacity
+          style={[
+            styles.filterButton,
+            activeFilter === 'distance' && styles.activeFilter,
+            !isDistanceFilterEnabled && styles.filterButtonDisabled,
+          ]}
+          onPress={() => setActiveFilter('distance')}
+          disabled={!isDistanceFilterEnabled}
+        >
+          <Ionicons
+            name={activeFilter === 'distance' && isDistanceFilterEnabled ? "location" : "location-outline"}
+            size={16}
+            color={activeFilter === 'distance' && isDistanceFilterEnabled ? '#fff' : (isDistanceFilterEnabled ? '#4CAF50' : '#999')}
+          />
+          <Text style={[
+            styles.filterText,
+            activeFilter === 'distance' && styles.activeFilterText,
+            !isDistanceFilterEnabled && styles.filterTextDisabled
+          ]}>
+            Nearest
+          </Text>
+        </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[
-                 styles.filterButton,
-                 activeFilter === 'price' && styles.activeFilter,
-                 !isPriceFilterEnabled && styles.filterButtonDisabled,
-            ]}
-            onPress={() => setActiveFilter('price')}
-            disabled={!isPriceFilterEnabled}
-          >
-            <Ionicons
-              name={activeFilter === 'price' && isPriceFilterEnabled ? "cash" : "cash-outline"}
-              size={16}
-              color={activeFilter === 'price' && isPriceFilterEnabled ? '#fff' : (isPriceFilterEnabled ? '#4CAF50' : '#999')}
-            />
-            <Text style={[
-                styles.filterText,
-                activeFilter === 'price' && styles.activeFilterText,
-                 !isPriceFilterEnabled && styles.filterTextDisabled
-                ]}
-            >
-              Best Price
-            </Text>
-          </TouchableOpacity>
-        </View>
-      );
+        <TouchableOpacity
+          style={[
+            styles.filterButton,
+            activeFilter === 'price' && styles.activeFilter,
+            !isPriceFilterEnabled && styles.filterButtonDisabled,
+          ]}
+          onPress={() => setActiveFilter('price')}
+          disabled={!isPriceFilterEnabled}
+        >
+          <Ionicons
+            name={activeFilter === 'price' && isPriceFilterEnabled ? "cash" : "cash-outline"}
+            size={16}
+            color={activeFilter === 'price' && isPriceFilterEnabled ? '#fff' : (isPriceFilterEnabled ? '#4CAF50' : '#999')}
+          />
+          <Text style={[
+            styles.filterText,
+            activeFilter === 'price' && styles.activeFilterText,
+            !isPriceFilterEnabled && styles.filterTextDisabled
+          ]}>
+            Best Price
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
   };
 
-
   return (
-    // Wrap the main content in SafeAreaView
-    // The style flex: 1 on the inner View makes it take up the remaining space
     <SafeAreaView style={[styles.safeAreaContainer, { backgroundColor }]}>
       <StatusBar style="auto" />
 
-      {/* Header component, likely handles its own padding */}
       <Header />
 
-      {/* Page Title */}
-      <Text style={[styles.pageTitle, { color: textColor }]}>Nearby Mandis</Text>
+      <Text style={[styles.pageTitle, { color: textColor }]}>Prayagraj Mandis</Text>
 
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#4CAF50" />
           <Text style={[styles.loadingText, { color: textColor }]}>
             {locationStatus === 'idle' ? "Getting location and data..." :
-             locationStatus === 'granted' ? "Fetching data and calculating distances..." :
-             "Fetching data (location unavailable)..."}
+              locationStatus === 'granted' ? "Fetching data and calculating distances..." :
+                "Fetching data (location unavailable)..."}
           </Text>
-           {errorMsg && <Text style={[styles.loadingText, { color: '#D32F2F', fontSize: 14, marginTop: 10 }]}>{errorMsg}</Text>}
+          {errorMsg && <Text style={[styles.loadingText, { color: '#D32F2F', fontSize: 14, marginTop: 10 }]}>{errorMsg}</Text>}
         </View>
       ) : (
         <>
@@ -476,46 +296,46 @@ export default function MandiScreen() {
             data={filteredMandis}
             renderItem={renderItem}
             keyExtractor={(item, index) =>
-                `${item?.market || ''}-${item?.commodity || ''}-${item?.modal_price || ''}-${item?.arrival_date || ''}-${index}`
+              `${item?.market || ''}-${item?.commodity || ''}-${item?.modal_price || ''}-${item?.arrival_date || ''}-${index}`
             }
             contentContainerStyle={styles.listContainer}
-             getItemLayout={(data, index) => (
-                {length: 170, offset: 170 * index, index}
-             )}
-             initialNumToRender={10}
-             maxToRenderPerBatch={10}
-             windowSize={21}
-             removeClippedSubviews={true}
+            getItemLayout={(data, index) => (
+              { length: 170, offset: 170 * index, index }
+            )}
+            initialNumToRender={10}
+            maxToRenderPerBatch={10}
+            windowSize={21}
+            removeClippedSubviews={true}
 
             ListEmptyComponent={
-                !loading && filteredMandis.length === 0 && !errorMsg ? (
-                  <View style={styles.emptyContainer}>
-                    <Ionicons name="leaf-outline" size={64} color="#CCCCCC" />
-                    <Text style={[styles.emptyText, { color: textColor }]}>
-                       {mandis.length > 0 ?
-                          "No mandis found matching the current criteria"
-                         :
-                          "No mandi data available"
-                       }
+              !loading && filteredMandis.length === 0 && !errorMsg ? (
+                <View style={styles.emptyContainer}>
+                  <Ionicons name="leaf-outline" size={64} color="#CCCCCC" />
+                  <Text style={[styles.emptyText, { color: textColor }]}>
+                    {mandis.length > 0 ?
+                      "No mandis found matching the current criteria"
+                      :
+                      "No mandi data available"
+                    }
+                  </Text>
+                  {mandis.length > 0 ? (
+                    <Text style={styles.emptySubtext}>
+                      Try adjusting your filters or check your location settings.
                     </Text>
-                    {mandis.length > 0 ? (
-                         <Text style={styles.emptySubtext}>
-                           Try adjusting your filters or check your location settings.
-                         </Text>
-                    ) : (
-                        !loading && (
-                           <Text style={styles.emptySubtext}>
-                             Check your internet connection or try again later.
-                           </Text>
-                        )
-                    )}
-                     {activeFilter === 'distance' && !location && (
-                         <Text style={styles.emptySubtext}>
-                            Cannot sort by "Nearest" without location. Try "Best Price".
-                         </Text>
-                     )}
-                  </View>
-                 ) : null
+                  ) : (
+                    !loading && (
+                      <Text style={styles.emptySubtext}>
+                        Check your internet connection or try again later.
+                      </Text>
+                    )
+                  )}
+                  {activeFilter === 'distance' && !location && (
+                    <Text style={styles.emptySubtext}>
+                      Cannot sort by "Nearest" without location. Try "Best Price".
+                    </Text>
+                  )}
+                </View>
+              ) : null
             }
           />
         </>
@@ -525,23 +345,17 @@ export default function MandiScreen() {
 }
 
 const styles = StyleSheet.create({
-    // Use safeAreaContainer for the outermost container that wraps everything *within* the SafeAreaView
   safeAreaContainer: {
-    flex: 1, // This is important so SafeAreaView fills the screen
-    // Background color is applied here as well
+    flex: 1,
   },
-  // The main content container can now have flex: 1 without worrying about status bar/notch
-  // container: { // This style is no longer needed or can be adjusted if you need an inner container
-  //   flex: 1,
-  // },
   pageTitle: {
     fontSize: 22,
     fontWeight: 'bold',
     paddingHorizontal: 16,
-    paddingVertical: 12, // Keep vertical padding for spacing below title
+    paddingVertical: 12,
   },
   loadingContainer: {
-    flex: 1, // Loading view takes up the available space
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
@@ -553,8 +367,7 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     padding: 16,
-    // Ensure sufficient padding at the bottom for devices with home indicators
-    paddingBottom: 80, // Adjust this value based on your bottom navigation height if any
+    paddingBottom: 80,
   },
   mandiCard: {
     borderRadius: 12,
@@ -632,7 +445,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     justifyContent: 'center',
   },
-   modalPriceItem: {
+  modalPriceItem: {
     flex: 1.2,
     backgroundColor: 'rgba(76, 175, 80, 0.1)',
     paddingVertical: 4,
@@ -652,7 +465,7 @@ const styles = StyleSheet.create({
   },
   modalPriceLabel: {
     fontSize: 12,
-    color: '#4CAF50',
+    color: '#6A994E',
     fontWeight: '500',
     textAlign: 'center',
   },
@@ -688,11 +501,11 @@ const styles = StyleSheet.create({
   },
   filterButtonDisabled: {
     borderColor: '#ccc',
-    backgroundColor: '#f9f9f9',
+    backgroundColor: '#1f1f1f',
     opacity: 0.8,
   },
   activeFilter: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#6A994E',
     borderColor: '#4CAF50',
   },
   filterText: {
@@ -704,7 +517,7 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   filterTextDisabled: {
-      color: '#999',
+    color: '#999',
   },
   errorContainer: {
     flexDirection: 'row',

@@ -50,7 +50,7 @@ const Onboarding = () => {
         <View style={styles.logoContainer}>
           <View style={styles.logo}>
             <Image
-              source={require('../assets/images/logoPlanta.png')}
+              source={require('../assets/images/logoFarm.png')}
               style={styles.logoImage}
               resizeMode="contain"
             />
@@ -63,7 +63,7 @@ const Onboarding = () => {
           style={styles.lottie}
         /> */}
         <Text style={styles.title}>Namaste!</Text>
-        <Text style={styles.subtitle}>Select your Planta language</Text>
+        <Text style={styles.subtitle}>Select your FarmAI language</Text>
       </View>
 
       <ScrollView style={styles.languageList}>

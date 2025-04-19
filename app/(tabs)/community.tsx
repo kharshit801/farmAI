@@ -5,138 +5,83 @@ import {
   View, 
   SafeAreaView, 
   TextInput, 
-  TouchableOpacity, 
-  Image,
-  FlatList,
-  ScrollView
+  TouchableOpacity,
+  FlatList
 } from 'react-native';
-import { Ionicons, Feather } from '@expo/vector-icons';
-import { Platform } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import Header from '@/components/Header';
 
-// Mock data for posts
+// Mock data for posts from Prayagraj region
 const posts = [
   {
     id: '1',
-    username: 'Bakhtawar Ahmad',
-    location: 'India',
-    time: '5 h',
-    title: 'Help identifying problem with my Apple',
-    content: 'Planta has detected a possible problem with my Apple. I was given a few possibilities: Powdery Mildew or Healthy. Can you help me identifying the issue?',
-    // image: require('./assets/apple-plant.jpg'), // You'll need to add your own image
-    likes: 0,
-    dislikes: 0,
-    answers: 1
+    username: 'Rajesh Kumar',
+    location: 'Naini, Prayagraj',
+    time: '2 h',
+    title: 'Wheat crop yellowing issue',
+    content: 'My wheat crop in Naini area is showing yellow patches. Anyone facing similar issues or has suggestions?',
+    likes: 5,
+    comments: 3
   },
-  // Add more mock posts here
-];
-
-// Filter options
-const filters = [
-  { id: '1', name: 'Apple', icon: '🍎' },
-  { id: '2', name: 'Banana', icon: '🍌' },
-  { id: '3', name: 'Apricot', icon: '🌰' },
-  { id: '4', name: 'Popular', icon: '' },
+  {
+    id: '2', 
+    username: 'Priya Singh',
+    location: 'Civil Lines, Prayagraj',
+    time: '5 h',
+    title: 'Best time to sow Rabi crops?',
+    content: 'When is the ideal time to start sowing Rabi crops in Prayagraj region considering the current weather conditions?',
+    likes: 8,
+    comments: 6
+  }
 ];
 
 export default function CommunityScreen() {
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header with search */}
-      <Header/>
-      <View style={styles.header}>
-        <View style={styles.searchContainer}>
-          <Ionicons name="search" size={20} color="#666" style={styles.searchIcon} />
-          <TextInput 
-            style={styles.searchInput} 
-            placeholder="Search in Community" 
-            placeholderTextColor="#666"
-          />
-        </View>
-        <TouchableOpacity style={styles.iconButton}>
-          <Ionicons name="notifications-outline" size={24} color="black" />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.iconButton}>
-          <Feather name="more-horizontal" size={24} color="black" />
-        </TouchableOpacity>
+      <Header />
+      
+      <View style={styles.searchBar}>
+        <Ionicons name="search" size={20} color="#666" />
+        <TextInput 
+          style={styles.searchInput}
+          placeholder="Search discussions..."
+          placeholderTextColor="#666"
+        />
       </View>
 
-      {/* Filter section */}
-      <View style={styles.filterSection}>
-        <View style={styles.filterHeader}>
-          <Text style={styles.filterTitle}>Filter by</Text>
-          <TouchableOpacity>
-            <Text style={styles.changeButton}>Change</Text>
-          </TouchableOpacity>
-        </View>
-
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScrollView}>
-          {filters.map(filter => (
-            <TouchableOpacity key={filter.id} style={styles.filterChip}>
-              <Text>{filter.icon} {filter.name}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
-
-      {/* Posts list */}
       <FlatList
         data={posts}
         keyExtractor={item => item.id}
         renderItem={({ item }) => (
           <View style={styles.postCard}>
-            {/* Post image */}
-            {/* <Image
-              source={item.image}
-              style={styles.postImage}
-              // defaultSource={require('./assets/placeholder.jpg')} // Add a placeholder image
-            /> */}
-            
-            {/* User info */}
-            <View style={styles.postContent}>
+            <View style={styles.postHeader}>
               <View style={styles.userInfo}>
-                <View style={styles.userAvatar}>
-                  <Ionicons name="person" size={20} color="#FFF" />
-                </View>
-                <View>
-                  <View style={styles.nameLocationContainer}>
-                    <Text style={styles.username}>{item.username}</Text>  
-                    <Text style={styles.location}>• {item.location}</Text>
-                  </View>
-                  <Text style={styles.timeAgo}>{item.time}</Text>
-                </View>
+                <Text style={styles.username}>{item.username}</Text>
+                <Text style={styles.location}>{item.location} • {item.time}</Text>
               </View>
+            </View>
+
+            <Text style={styles.title}>{item.title}</Text>
+            <Text style={styles.content}>{item.content}</Text>
+
+            <View style={styles.postFooter}>
+              <TouchableOpacity style={styles.actionButton}>
+                <Ionicons name="heart-outline" size={20} color="#666" />
+                <Text style={styles.actionText}>{item.likes}</Text>
+              </TouchableOpacity>
               
-              {/* Post title and content */}
-              <Text style={styles.postTitle}>{item.title}</Text>
-              <Text style={styles.postText}>{item.content}</Text>
-              
-              <View style={styles.postFooter}>
-                <View style={styles.actionsContainer}>
-                  <TouchableOpacity style={styles.actionButton}>
-                    <Ionicons name="thumbs-up-outline" size={20} color="black" />
-                    <Text style={styles.actionText}>{item.likes}</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.actionButton}>
-                    <Ionicons name="thumbs-down-outline" size={20} color="black" />
-                    <Text style={styles.actionText}>{item.dislikes}</Text>
-                  </TouchableOpacity>
-                </View>
-                
-                <TouchableOpacity style={styles.askButton}>
-                  <Feather name="edit-2" size={16} color="white" />
-                  <Text style={styles.askButtonText}>Ask Community</Text>
-                </TouchableOpacity>
-              </View>
-              
-              <Text style={styles.translateText}>Translate</Text>
-              <Text style={styles.answersCount}>{item.answers} answers</Text>
+              <TouchableOpacity style={styles.actionButton}>
+                <Ionicons name="chatbubble-outline" size={20} color="#666" />
+                <Text style={styles.actionText}>{item.comments}</Text>
+              </TouchableOpacity>
             </View>
           </View>
         )}
       />
-      
-     
+
+      <TouchableOpacity style={styles.fab}>
+        <Ionicons name="add" size={24} color="#FFF" />
+      </TouchableOpacity>
     </SafeAreaView>
   );
 }
@@ -144,187 +89,84 @@ export default function CommunityScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#f5f5f5'
   },
-  header: {
+  searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    padding: 12,
     backgroundColor: '#fff',
-  },
-  searchContainer: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f0f0f0',
-    borderRadius: 24,
-    paddingHorizontal: 12,
-    marginRight: 8,
-  },
-  searchIcon: {
-    marginRight: 8,
+    marginHorizontal: 16,
+    marginVertical: 8,
+    borderRadius: 8
   },
   searchInput: {
     flex: 1,
-    height: 40,
-    color: '#000',
-  },
-  iconButton: {
-    padding: 8,
-    borderRadius: 20,
-  },
-  filterSection: {
-    backgroundColor: '#fff',
-    paddingVertical: 12,
-  },
-  filterHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    marginBottom: 12,
-  },
-  filterTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  changeButton: {
-    color: '#2962FF',
-    fontWeight: '500',
-  },
-  filterScrollView: {
-    paddingLeft: 16,
-  },
-  filterChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    marginRight: 8,
+    marginLeft: 8,
+    fontSize: 16
   },
   postCard: {
     backgroundColor: '#fff',
-    marginVertical: 8,
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  postImage: {
-    width: '100%',
-    height: 200,
-    resizeMode: 'cover',
-  },
-  postContent: {
     padding: 16,
+    marginHorizontal: 16,
+    marginVertical: 8,
+    borderRadius: 8
+  },
+  postHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12
   },
   userInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  userAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#4886E8',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 8,
-  },
-  nameLocationContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flex: 1
   },
   username: {
-    fontWeight: 'bold',
-    color: '#4886E8',
     fontSize: 16,
+    fontWeight: '600',
+    color: '#333'
   },
   location: {
-    marginLeft: 4,
+    fontSize: 14,
     color: '#666',
+    marginTop: 2
   },
-  timeAgo: {
-    color: '#666',
-    fontSize: 12,
-  },
-  postTitle: {
+  title: {
     fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  postText: {
-    fontSize: 16,
-    lineHeight: 22,
+    fontWeight: '600',
     color: '#333',
-    marginBottom: 16,
+    marginBottom: 8
+  },
+  content: {
+    fontSize: 16,
+    color: '#444',
+    lineHeight: 22
   },
   postFooter: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
+    marginTop: 16,
     paddingTop: 12,
-    marginTop: 8,
-  },
-  actionsContainer: {
-    flexDirection: 'row',
+    borderTopWidth: 1,
+    borderTopColor: '#eee'
   },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: 24
   },
   actionText: {
     marginLeft: 4,
+    color: '#666'
   },
-  askButton: {
-    flexDirection: 'row',
+  fab: {
+    position: 'absolute',
+    right: 16,
+    bottom: 16,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#4CAF50',
     alignItems: 'center',
-    backgroundColor: '#3366FF',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 24,
-  },
-  askButtonText: {
-    color: '#fff',
-    fontWeight: '500',
-    marginLeft: 8,
-  },
-  translateText: {
-    color: '#666',
-    marginTop: 12,
-  },
-  answersCount: {
-    textAlign: 'right',
-    color: '#666',
-    marginTop: 8,
-  },
-  bottomNav: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
-    paddingBottom: Platform.OS === 'ios' ? 24 : 8,
-  },
-  navItem: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  activeNavItem: {
-    backgroundColor: '#e8f5e9',
-  },
-  navText: {
-    fontSize: 12,
-    marginTop: 4,
-    color: '#666',
-  },
-  activeNavText: {
-    color: '#2E7D32',
-  },
+    justifyContent: 'center',
+    elevation: 4
+  }
 });
