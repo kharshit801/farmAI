@@ -1,4 +1,4 @@
-# 🌿 PLANTA (Smart Agri Assistan)t
+# 🌿 PLANTA (Smart Agri Assistant)
 
 Smart Agri Assistant is a cross-platform mobile application built using **React Native** and **Expo**, designed to empower farmers with modern AI and API-driven agricultural tools. This app helps in detecting crop diseases, recommending suitable crops, providing weather insights, and enabling informed purchasing decisions — all in one place.
 
