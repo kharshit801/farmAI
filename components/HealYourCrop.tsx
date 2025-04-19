@@ -124,7 +124,7 @@ const HealYourCrop: React.FC = () => {
           <Text style={styles.healStepText}>Get medicine</Text>
         </View>
       </View>
-      <PrimaryButton title="Take a picture" onPress={openCamera} />
+      <PrimaryButton title="Take a picture" onPress={() => router.push('/cropPrediction')} />
     </View>
   );
 };

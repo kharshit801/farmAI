@@ -2,6 +2,7 @@ import { Tabs } from 'expo-router';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import Colors from '@/constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
+
 import { Platform, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
@@ -94,6 +95,8 @@ export default function TabLayout() {
           } else if (route.name === 'profile') {
             iconName = focused ? 'person' : 'person-outline';
           }
+          else if(route.name === 'mandi') {
+            iconName = focused ? 'leaf' : 'leaf-outline';}
           
           return <TabBarIcon name={iconName} color={color} focused={focused} />;
         },
@@ -119,17 +122,18 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="profile"
-        options={{
-          title: 'Profile',
-        }}
-      />
-      <Tabs.Screen
       name="mandi"
       options={{
         title: 'Mandi'
       }}
       />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Profile',
+        }}
+      />
+      
     </Tabs>
   );
 }

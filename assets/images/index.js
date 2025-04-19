@@ -1,19 +1,10 @@
 import logo from './logoPlanta.png';
-import profilePlaceholder from './profile_placeholder.png';
-import potatato from './potato.png';
-import sugarcane from './sugar-cane.png';
-import tea from './tea.png';
-import tomato from './tomato.png';
-
-
+import profilePlaceholder from './profile-placeholder.png';
+import leaf from './leaf.png';
 
 export default{
     logo,
-    
+    leaf,
     profilePlaceholder,
-    potatato,
-    sugarcane,
-    tea,
-    tomato,
     // Add more images as needed
 }
