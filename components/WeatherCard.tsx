@@ -5,7 +5,7 @@ import * as Location from 'expo-location';
 import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
 
 // API key
-const OPENWEATHERMAP_API_KEY = 'ea48e2e1e7425bf6ecc20220a5fad70a';
+const OPENWEATHERMAP_API_KEY = '5942ca62c79ba3159881b814558fb0ae';
 
 type WeatherData = {
   main: {
