@@ -34,10 +34,10 @@ const FeatureCardsSection = () => {
           onPress={() => console.log('Cultivation tips pressed')}
         />
         <FeatureCard 
-          title="Pests and Disease Alert"
-          icon={<Ionicons name="warning-outline" size={24} color="#003366" />}
-          badge={9}
-          onPress={() => console.log('Alerts pressed')}
+          title="Upload Soil Card"
+          icon={<Ionicons name="id-card" size={24} color="#003366" />}
+         
+          onPress={() => router.push('/soilCard')}
         />
       </View>
       

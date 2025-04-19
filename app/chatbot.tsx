@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack } from 'expo-router';
 
 import { Julep } from '@julep/sdk';
+import Header from '@/components/Header';
 
 const JULEP_AGENT_ID = "06802005-adc9-75f1-8000-5ea756eb8532"; // <-- REPLACE with your actual Agent ID
 
@@ -137,13 +138,14 @@ export default function ChatbotScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <Stack.Screen options={{ title: 'Planta Chatbot' }} />
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-      >
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+    >
+      <SafeAreaView style={styles.container}>
+        <Header/>
+        <Stack.Screen options={{ title: 'Planta Chatbot' }} />
         <FlatList
           ref={flatListRef}
           data={messages}
@@ -172,8 +174,8 @@ export default function ChatbotScreen() {
           />
           <Button title="Send" onPress={handleSendMessage} disabled={!inputText.trim() || isTyping || julepClient === null} />
         </View>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+      </SafeAreaView>
+    </KeyboardAvoidingView>
   );
 }
 
