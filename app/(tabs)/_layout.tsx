@@ -2,13 +2,19 @@ import { Tabs } from 'expo-router';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import Colors from '@/constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
-import { Platform, View, StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 
-// Custom tab bar button component with animation
-function TabBarIcon({ name, color, focused }) {
+// Custom tab bar icon component with proper TypeScript types
+interface TabBarIconProps {
+  name: keyof typeof Ionicons.glyphMap;
+  color: string;
+  focused: boolean;
+}
+
+function TabBarIcon({ name, color, focused }: TabBarIconProps) {
   const animatedStyle = useAnimatedStyle(() => {
     return {
       transform: [
@@ -77,7 +83,7 @@ export default function TabLayout() {
           fontWeight: 'bold',
         },
         tabBarIcon: ({ color, focused }) => {
-          let iconName;
+          let iconName: keyof typeof Ionicons.glyphMap = 'home';
           
           if (route.name === 'index') {
             iconName = focused ? 'home' : 'home-outline';
@@ -88,6 +94,8 @@ export default function TabLayout() {
           } else if (route.name === 'profile') {
             iconName = focused ? 'person' : 'person-outline';
           }
+          else if(route.name === 'mandi') {
+            iconName = focused ? 'leaf' : 'leaf-outline';}
           
           return <TabBarIcon name={iconName} color={color} focused={focused} />;
         },
@@ -113,11 +121,18 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+      name="mandi"
+      options={{
+        title: 'Mandi'
+      }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',
         }}
       />
+      
     </Tabs>
   );
 }
@@ -127,5 +142,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingTop: 4,
-  }
+  },
 });

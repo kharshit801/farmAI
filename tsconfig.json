@@ -1,3 +1,11 @@
+// This file is used to configure TypeScript for the Expo project.
+// It extends the base configuration provided by Expo and adds custom paths for easier imports.
+// The paths are defined to allow for cleaner and more organized imports throughout the project.
+// The "include" section specifies which files should be included in the TypeScript compilation process.
+// The "expo-env.d.ts" file is included to provide type definitions for environment variables in Expo.
+// The "expo/types/**/*.ts" pattern is included to ensure that Expo's type definitions are recognized by TypeScript.
+// The "strict" option is set to true to enable strict type checking, which helps catch potential errors early in the development process.
+
 
 
 {
@@ -23,5 +31,5 @@
     "**/*.tsx",
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
-  ]
+, "app/fields.jsx"  ]
 }
