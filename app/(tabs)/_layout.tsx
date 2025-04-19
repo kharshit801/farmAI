@@ -124,6 +124,12 @@ export default function TabLayout() {
           title: 'Profile',
         }}
       />
+      <Tabs.Screen
+      name="mandi"
+      options={{
+        title: 'Mandi'
+      }}
+      />
     </Tabs>
   );
 }

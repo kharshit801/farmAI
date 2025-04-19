@@ -2,7 +2,11 @@ import React from 'react';
 import { View, Text, Image, StyleSheet } from 'react-native';
 import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
 
-const Header: React.FC = () => {
+interface HeaderProps {
+  title?: string; // Optional title prop
+}
+
+const Header: React.FC<HeaderProps> = ({ title }) => {
   return (
     <View style={styles.header}>
       <Image 
@@ -10,7 +14,7 @@ const Header: React.FC = () => {
         style={styles.logo} 
         resizeMode="contain"
       />
-      <Text style={styles.headerTitle}>PLANTA</Text>
+      <Text style={styles.headerTitle}>{title || 'PLANTA'}</Text>
     </View>
   );
 };
