@@ -1,6 +1,7 @@
 // components/ui/Card.tsx
 import React, { ReactNode } from 'react';
 import { StyleSheet, TouchableOpacity, ViewStyle } from 'react-native';
+import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
 
 interface CardProps {
   children: ReactNode;
@@ -23,12 +24,12 @@ const Card = ({ children, onPress, style }: CardProps) => {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: '#E6F0FF',
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: wp('3%'),
+    padding: wp('4%'),
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: hp('0.2%') },
     shadowOpacity: 0.1,
-    shadowRadius: 1,
+    shadowRadius: wp('0.3%'),
     elevation: 1,
   },
 });

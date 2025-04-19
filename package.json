@@ -47,6 +47,7 @@
     "react-native-screens": "~4.4.0",
     "react-native-web": "~0.19.13",
     "react-native-webview": "13.12.5",
+    "expo-sharing": "~13.0.1",
     "react-native-maps": "1.18.0"
   },
   "devDependencies": {

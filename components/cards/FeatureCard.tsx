@@ -3,6 +3,10 @@ import React from 'react';
 import { StyleSheet, View, Text, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Card from '../ui/Card';
+import {
+  widthPercentageToDP as wp,
+  heightPercentageToDP as hp,
+} from 'react-native-responsive-screen';
 
 interface FeatureCardProps {
   title: string;
@@ -24,7 +28,9 @@ const FeatureCard = ({ title, icon, onPress, style, badge = null }: FeatureCardP
         )}
       </View>
       <Text style={styles.title} numberOfLines={2}>{title}</Text>
-      <Ionicons name="chevron-forward" size={24} color="#003366" style={styles.arrow} />
+      <View style={styles.arrowContainer}>
+        <Ionicons name="chevron-forward" size={wp('6%')} color="#003366" />
+      </View>
     </Card>
   );
 };
@@ -35,42 +41,45 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     position: 'relative',
     width: '48%',
-    height: 80,
+    height: hp('10%'),
   },
   iconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: wp('10%'),
+    height: wp('10%'),
+    borderRadius: wp('5%'),
     backgroundColor: 'white',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: wp('3%'),
     position: 'relative',
   },
   title: {
     color: '#001A33',
     fontWeight: '600',
-    fontSize: 16,
+    fontSize: wp('4%'),
     flex: 1,
+    paddingRight: wp('8%'), // Add padding to prevent text overlap with arrow
   },
-  arrow: {
+  arrowContainer: {
     position: 'absolute',
-    right: 12,
+    right: wp('3%'),
+    height: '100%',
+    justifyContent: 'center',
   },
   badge: {
     position: 'absolute',
-    top: -5,
-    right: -5,
+    top: -hp('0.6%'),
+    right: -wp('1.2%'),
     backgroundColor: '#E53935',
-    borderRadius: 10,
-    width: 20,
-    height: 20,
+    borderRadius: wp('2.5%'),
+    width: wp('5%'),
+    height: wp('5%'),
     justifyContent: 'center',
     alignItems: 'center',
   },
   badgeText: {
     color: 'white',
-    fontSize: 12,
+    fontSize: wp('3%'),
     fontWeight: 'bold',
   },
 });
