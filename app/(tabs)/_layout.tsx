@@ -87,15 +87,15 @@ export default function TabLayout() {
           
           if (route.name === 'index') {
             iconName = focused ? 'home' : 'home-outline';
-          } else if (route.name === 'community') {
-            iconName = focused ? 'people' : 'people-outline';
+          } else if (route.name === 'crops') {
+            iconName = focused ? 'leaf' : 'leaf-outline';
           } else if (route.name === 'shop') {
             iconName = focused ? 'cart' : 'cart-outline';
           } else if (route.name === 'profile') {
             iconName = focused ? 'person' : 'person-outline';
           }
           else if(route.name === 'mandi') {
-            iconName = focused ? 'leaf' : 'leaf-outline';}
+            iconName = focused ? 'pricetag-sharp' : 'pricetag-outline';}
           
           return <TabBarIcon name={iconName} color={color} focused={focused} />;
         },
@@ -109,9 +109,9 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="community"
+        name="crops"
         options={{
-          title: 'Community',
+          title: 'Crops',
         }}
       />
       <Tabs.Screen

@@ -96,7 +96,7 @@ interface Mandi {
 
 // --- MANDI CARD COMPONENT (Optimized with React.memo) ---
 const MandiCard = React.memo(({ item }: { item: Mandi }) => {
-  const cardBackgroundColor = useThemeColor({}, 'cardBackground') || '#fff';
+  const cardBackgroundColor = useThemeColor({}, 'background') || '#fff';
   const textColor = useThemeColor({}, 'text') || '#000000';
 
    if (!item || typeof item.market !== 'string' || typeof item.commodity !== 'string') {

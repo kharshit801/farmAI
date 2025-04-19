@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Image, Alert, Modal, ActivityIndicator, ScrollView } from 'react-native';
+import React, { useState, useMemo, useCallback } from 'react';
+import { StyleSheet, View, Text, TouchableOpacity, Image, Alert, ActivityIndicator, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
 import * as ImagePicker from 'expo-image-picker';
@@ -7,22 +7,27 @@ import * as FileSystem from 'expo-file-system';
 import { Ionicons } from '@expo/vector-icons';
 import { Julep } from '@julep/sdk';
 import Header from '@/components/Header';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
+
+// API keys and constants (replace with secure storage in production)
 const OCR_API_KEY = 'K85534551388957';
 const JULEP_AGENT_ID = '06802005-adc9-75f1-8000-5ea756eb8532';
 const JULEP_API_KEY = 'eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTAxNTkwMTcsImlhdCI6MTc0NDk3NTAxNywic3ViIjoiNjVhMWE5MzYtYjBlMy01OTI0LTk3NzQtNjU1NDVmYmYwNTgyIn0.QbU03Bwv5Qv4Wv5sKuXu26wE9vac0lguHwKlUfzVeLvwVY1-UlMT7kr3h8K6XQEQJUn925NB5OD4uLR0jPHRAQ';
 
+// Julep task definition
 const julepTaskDefinition = {
   name: 'Soil Health Analysis',
   description: 'Analyze soil health card data and provide concise farming recommendations',
   main: [
     {
       type: 'prompt',
-      prompt: "$ f'You are an expert agronomist AI assistant. Analyze the following soil health card data and provide concise, actionable recommendations to maximize crop yield. Focus on pH adjustment, nutrient management (N, P, K, S, Zn, Fe, Mn, Cu, B), and crop-specific advice. Data: {steps[0].input.soilData} response give in hindi' ",
+      prompt: "$ f'You are an expert agronomist AI assistant. Analyze the following soil health card data and provide concise, actionable recommendations to maximize crop yield. Focus on pH adjustment, nutrient management (N, P, K, S, Zn, Fe, Mn, Cu, B), and crop-specific advice. Data: {steps[0].input.soilData}' ",
     },
   ],
 };
 
-// Define interfaces for better TypeScript support
+// Interfaces for TypeScript
 interface OCRResult {
   ParsedResults?: Array<{
     ParsedText: string;
@@ -47,10 +52,17 @@ interface JulepResult {
 
 const SoilCardScreen = () => {
   const [image, setImage] = useState<string | null>(null);
-  const [modalVisible, setModalVisible] = useState<boolean>(false);
-  const [recommendations, setRecommendations] = useState<string>('');
+  const [recommendations, setRecommendations] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [errorDetails, setErrorDetails] = useState<string | null>(null);
+  const [showRecommendations, setShowRecommendations] = useState<boolean>(false);
 
+  // Button animation states
+  const uploadScale = useSharedValue(1);
+  const cancelScale = useSharedValue(1);
+  const analyzeScale = useSharedValue(1);
+
+  // Initialize Julep client
   const julepClient = useMemo(() => {
     if (!JULEP_API_KEY) {
       Alert.alert('Error', 'Julep API key is missing.');
@@ -59,303 +71,492 @@ const SoilCardScreen = () => {
     return new Julep({ apiKey: JULEP_API_KEY });
   }, []);
 
- const pickImage = async () => {
-  try {
-    // Request media library permissions first
+  // Request media library permissions
+  const requestPermissions = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    
     if (status !== 'granted') {
-      Alert.alert('Permission Denied', 'We need camera roll permission to upload images.');
-      return;
+      Alert.alert('Permission Required', 'Please grant camera roll permissions to select an image.');
+      return false;
     }
-    
-    // Use the correct MediaTypeOptions that works with your version
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images, // Using MediaTypeOptions instead of MediaType
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 1,
-    });
-    
-    if (!result.canceled) {
-      setImage(result.assets[0].uri);
-      console.log("Image selected:", result.assets[0].uri);
+    return true;
+  };
+
+  // Pick an image from the gallery
+  const pickImage = async () => {
+    const hasPermission = await requestPermissions();
+    if (!hasPermission) return;
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 1,
+      });
+      if (!result.canceled) {
+        setImage(result.assets[0].uri);
+        setRecommendations(null);
+        setErrorDetails(null);
+        setShowRecommendations(false);
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert('Error', 'Failed to select image');
     }
-  } catch (error) {
-    console.error('Image picker error:', error);
-    Alert.alert('Error', 'Failed to pick image');
-  }
-};
+  };
+
+  // Reset image and state
+  const resetImage = useCallback(() => {
+    setImage(null);
+    setRecommendations(null);
+    setErrorDetails(null);
+    setShowRecommendations(false);
+  }, []);
+
+  // Process soil health card
   const processSoilCard = async () => {
     if (!image) {
-        Alert.alert('Error', 'Please select an image first');
-        return;
-      }
-    
-      setIsProcessing(true);
-    
-      try {
-        console.log("Processing image:", image);
-        
-        // Convert image to base64
-        const base64 = await FileSystem.readAsStringAsync(image, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
-        
-        console.log("Image converted to base64, length:", base64.length);
-    
-        // Create FormData instead of JSON
-        const formData = new FormData();
-        
-        // Add file as blob with correct MIME type
-        const imageInfo = await FileSystem.getInfoAsync(image);
-        const fileName = image.split('/').pop();
-        
-        // Create file blob
-        const file = {
-          uri: image,
-          type: 'image/jpeg', // You might need to get the actual mime type
-          name: fileName || 'upload.jpg',
-        };
-        
-        formData.append('file', file);
-        formData.append('language', 'eng');
-        formData.append('apikey', OCR_API_KEY);
-        formData.append('isTable', 'true');
-        
-        console.log("Sending OCR request with FormData");
-        
-        const ocrResponse = await fetch(
-          'https://api.ocr.space/parse/image',
-          {
-            method: 'POST',
-            headers: {
-              'apikey': OCR_API_KEY,
-            },
-            body: formData,
-          }
-        );
-        
-        const ocrResult = await ocrResponse.json();
-        console.log("OCR Result:", JSON.stringify(ocrResult));
-      
+      Alert.alert('Error', 'Please select an image first');
+      return;
+    }
+
+    setIsProcessing(true);
+    setErrorDetails(null);
+
+    try {
+      // Convert image to base64
+      const base64 = await FileSystem.readAsStringAsync(image, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+
+      // Create FormData for OCR API
+      const formData = new FormData();
+      const fileName = image.split('/').pop();
+      formData.append('file', {
+        uri: image,
+        type: 'image/jpeg',
+        name: fileName || 'upload.jpg',
+      } as any);
+      formData.append('language', 'eng');
+      formData.append('apikey', OCR_API_KEY);
+      formData.append('isTable', 'true');
+
+      // Send OCR request
+      const ocrResponse = await fetch('https://api.ocr.space/parse/image', {
+        method: 'POST',
+        headers: {
+          'apikey': OCR_API_KEY,
+        },
+        body: formData,
+      });
+
+      const ocrResult: OCRResult = await ocrResponse.json();
+
       if (ocrResult.IsErroredOnProcessing) {
-        Alert.alert('OCR Error', ocrResult.ErrorMessage || 'Error processing image');
-        setIsProcessing(false);
-        return;
+        throw new Error(ocrResult.ErrorMessage || 'Error processing image');
       }
-      
+
       const extractedText = ocrResult?.ParsedResults?.[0]?.ParsedText || '';
-
       if (!extractedText) {
-        Alert.alert('Error', 'No text extracted from the image. Try a clearer image or different lighting.');
-        setIsProcessing(false);
-        return;
+        throw new Error('No text extracted from the image. Try a clearer image or different lighting.');
       }
-      
-      console.log("Extracted text:", extractedText.substring(0, 100) + "...");
 
-      // Step 2: Julep AI Analysis
+      // Julep AI Analysis
       if (!julepClient) {
-        Alert.alert('Error', 'Julep client not initialized.');
-        setIsProcessing(false);
-        return;
+        throw new Error('Julep client not initialized.');
       }
 
-      console.log("Creating Julep task");
       const task = await julepClient.tasks.create(JULEP_AGENT_ID, julepTaskDefinition);
-      console.log("Executing Julep task");
       const execution = await julepClient.executions.create(task.id, {
         input: { soilData: extractedText },
       });
 
       let result: JulepResult;
       let attempts = 0;
-      const maxAttempts = 30; // To avoid infinite loops
-      
-      console.log("Waiting for Julep analysis");
+      const maxAttempts = 30;
+
       while (attempts < maxAttempts) {
         result = await julepClient.executions.get(execution.id);
-        console.log("Julep status:", result.status);
-        
         if (result.status === 'succeeded') {
           const botText = result.output?.choices?.[0]?.message?.content || 'No recommendations available.';
-          console.log("Analysis complete");
           setRecommendations(botText);
-          setModalVisible(true);
+          setShowRecommendations(true);
           break;
         } else if (result.status === 'failed') {
-          Alert.alert('Error', `Analysis failed: ${result.error?.message || 'Unknown error'}`);
-          break;
+          throw new Error(result.error?.message || 'Analysis failed');
         }
-        
         attempts++;
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
-      
+
       if (attempts >= maxAttempts) {
-        Alert.alert('Timeout', 'Analysis is taking too long. Please try again later.');
+        throw new Error('Analysis is taking too long. Please try again later.');
       }
     } catch (error: any) {
       console.error('Processing error:', error);
-      Alert.alert('Error', `Processing failed: ${error.message || 'Unknown error'}`);
+      setErrorDetails(error.message || 'Processing failed. Please try again.');
+      Alert.alert('Error', error.message || 'Processing failed');
     } finally {
       setIsProcessing(false);
     }
   };
 
-  return (
-    <SafeAreaView style={styles.container}>
-        <Header/>
-      <View style={styles.uploadContainer}>
-        {image ? (
-          <Image source={{ uri: image }} style={styles.image} />
-        ) : (
-          <View style={styles.placeholder}>
-            <Ionicons name="document-outline" size={wp('20%')} color="#003366" />
-            <Text style={styles.placeholderText}>Select your soil health card</Text>
+  // Button animation handlers
+  const handlePressIn = (scale: Animated.SharedValue<number>) => {
+    scale.value = withSpring(0.98); // Subtle scale for minimalistic feel
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const handlePressOut = (scale: Animated.SharedValue<number>) => {
+    scale.value = withSpring(1);
+  };
+
+  // Animated styles for buttons
+  const uploadAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: uploadScale.value }],
+  }));
+
+  const cancelAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: cancelScale.value }],
+  }));
+
+  const analyzeAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: analyzeScale.value }],
+  }));
+
+  // Render results card
+  const renderResults = () => {
+    if (errorDetails) {
+      return (
+        <View style={styles.resultCard}>
+          <View style={[styles.statusIndicator, { backgroundColor: '#F44336' }]} />
+          <Text style={[styles.predictionText, { color: '#F44336' }]}>Error</Text>
+          <Text style={styles.descriptionText}>{errorDetails}</Text>
+        </View>
+      );
+    }
+
+    if (!recommendations) return null;
+
+    return (
+      <View style={styles.resultCard}>
+        <View style={[styles.statusIndicator, { backgroundColor: '#6A994E' }]} />
+        <Text style={[styles.predictionText, { color: '#6A994E' }]}>Soil Analysis</Text>
+        <Text style={styles.descriptionText}>
+          Your soil health card has been analyzed successfully.
+        </Text>
+        {!showRecommendations && (
+          <Animated.View style={[styles.buttonWrapper, analyzeAnimatedStyle]}>
+            <TouchableOpacity
+              style={styles.treatmentButton}
+              onPress={() => setShowRecommendations(true)}
+              onPressIn={() => handlePressIn(analyzeScale)}
+              onPressOut={() => handlePressOut(analyzeScale)}
+            >
+              <View style={[styles.buttonContent, { backgroundColor: '#6A994E' }]}>
+                <Text style={styles.treatmentButtonText}>View Recommendations</Text>
+                <Ionicons name="chevron-down-outline" size={wp('5%')} color="#fff" style={styles.buttonIcon} />
+              </View>
+            </TouchableOpacity>
+          </Animated.View>
+        )}
+        {showRecommendations && (
+          <View style={styles.treatmentContainer}>
+            <Text style={styles.treatmentTitle}>Recommendations</Text>
+            <Text style={styles.treatmentText}>{recommendations}</Text>
+            <TouchableOpacity
+              style={styles.hideButton}
+              onPress={() => setShowRecommendations(false)}
+            >
+              <Text style={styles.hideButtonText}>Hide Recommendations</Text>
+              <Ionicons name="chevron-up-outline" size={wp('5%')} color="#6A994E" />
+            </TouchableOpacity>
           </View>
         )}
-        <TouchableOpacity style={styles.uploadButton} onPress={pickImage}>
-          <Ionicons name="cloud-upload-outline" size={wp('6%')} color="white" />
-          <Text style={styles.buttonText}>Choose File</Text>
-        </TouchableOpacity>
-        {image && (
-          <TouchableOpacity
-            style={styles.submitButton}
-            onPress={processSoilCard}
-            disabled={isProcessing}
-          >
-            {isProcessing ? (
-              <ActivityIndicator size="small" color="white" />
-            ) : (
-              <Text style={styles.buttonText}>Analyze Card</Text>
-            )}
-          </TouchableOpacity>
-        )}
-
-        {/* Modal for Recommendations */}
-        <Modal
-          animationType="slide"
-          transparent={true}
-          visible={modalVisible}
-          onRequestClose={() => setModalVisible(false)}
-        >
-            
-          <View style={styles.modalContainer}>
-
-            <View style={styles.modalContent}>
-                <ScrollView>
-              <Text style={styles.modalTitle}>Recommendations</Text>
-              <Text style={styles.modalText}>{recommendations}</Text>
-              <TouchableOpacity
-                style={styles.modalButton}
-                onPress={() => setModalVisible(false)}
-              >
-                <Text style={styles.buttonText}>Close</Text>
-              </TouchableOpacity>
-              </ScrollView>
-            </View>
-          </View>
-        </Modal>
       </View>
+    );
+  };
+
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <Header />
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <View style={styles.container}>
+          {!image && (
+            <View style={styles.placeholderContainer}>
+              <Ionicons name="document-outline" size={wp('25%')} color="#E5E7EB" />
+              <Text style={styles.subtitle}>
+                Select your soil health card for analysis
+              </Text>
+            </View>
+          )}
+
+          {image && (
+            <View style={styles.imageWrapper}>
+              <Image source={{ uri: image }} style={styles.image} />
+              {isProcessing && (
+                <View style={styles.loadingOverlay}>
+                  <ActivityIndicator size="large" color="#ffffff" />
+                  <Text style={styles.loadingText}>Analyzing...</Text>
+                </View>
+              )}
+            </View>
+          )}
+
+          {renderResults()}
+
+          <View style={styles.buttonContainer}>
+            <Animated.View style={[styles.buttonWrapper, uploadAnimatedStyle]}>
+              <TouchableOpacity
+                style={styles.uploadButton}
+                onPress={pickImage}
+                onPressIn={() => handlePressIn(uploadScale)}
+                onPressOut={() => handlePressOut(uploadScale)}
+                disabled={isProcessing}
+              >
+                <View style={[styles.buttonContent, isProcessing && styles.disabledButton, { backgroundColor: '#1F1F1F' }]}>
+                  <Ionicons name="cloud-upload-outline" size={wp('6%')} color="#fff" />
+                  <Text style={styles.buttonText}>Choose File</Text>
+                </View>
+              </TouchableOpacity>
+            </Animated.View>
+
+            {image && (
+              <Animated.View style={[styles.buttonWrapper, cancelAnimatedStyle]}>
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={resetImage}
+                  onPressIn={() => handlePressIn(cancelScale)}
+                  onPressOut={() => handlePressOut(cancelScale)}
+                  disabled={isProcessing}
+                >
+                  <View style={[styles.buttonContent, isProcessing && styles.disabledButton, { backgroundColor: '#1F1F1F' }]}>
+                    <Ionicons name="close-outline" size={wp('6%')} color="#fff" />
+                    <Text style={styles.buttonText}>Cancel</Text>
+                  </View>
+                </TouchableOpacity>
+              </Animated.View>
+            )}
+
+            {image && (
+              <Animated.View style={[styles.buttonWrapper, analyzeAnimatedStyle]}>
+                <TouchableOpacity
+                  style={styles.analyzeButton}
+                  onPress={processSoilCard}
+                  onPressIn={() => handlePressIn(analyzeScale)}
+                  onPressOut={() => handlePressOut(analyzeScale)}
+                  disabled={isProcessing}
+                >
+                  <View style={[styles.buttonContent, isProcessing && styles.disabledButton, { backgroundColor: '#6A994E' }]}>
+                    {isProcessing ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <>
+                        <Ionicons name="analytics-outline" size={wp('6%')} color="#fff" />
+                        <Text style={styles.buttonText}>Analyze</Text>
+                      </>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              </Animated.View>
+            )}
+          </View>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  scrollContent: {
+    flexGrow: 1,
+  },
   container: {
     flex: 1,
-    backgroundColor: '#fff',
-    padding: wp('4%'),
+    padding: wp('5%'),
+    backgroundColor: '#FFFFFF',
   },
-  title: {
-    fontSize: wp('6%'),
-    fontWeight: 'bold',
-    color: '#003366',
-    marginBottom: hp('4%'),
+  subtitle: {
+    fontSize: wp('3.5%'),
+    color: '#6B7280',
     textAlign: 'center',
-  },
-  uploadContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  placeholder: {
-    width: wp('80%'),
-    height: hp('40%'),
-    borderWidth: 2,
-    borderColor: '#003366',
-    borderStyle: 'dashed',
-    borderRadius: wp('4%'),
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: hp('4%'),
-  },
-  placeholderText: {
     marginTop: hp('2%'),
-    fontSize: wp('4%'),
-    color: '#003366',
-    textAlign: 'center',
+    maxWidth: wp('70%'),
+  },
+  placeholderContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: hp('40%'),
+    marginVertical: hp('3%'),
+    backgroundColor: '#F9FAFB',
+    borderRadius: wp('4%'),
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderStyle: 'dashed',
+  },
+  imageWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: hp('3%'),
+    position: 'relative',
+    borderRadius: wp('4%'),
+    overflow: 'hidden',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
   },
   image: {
-    width: wp('80%'),
-    height: hp('40%'),
+    width: wp('90%'),
+    height: wp('67.5%'), // Maintain 4:3 aspect ratio
     borderRadius: wp('4%'),
-    marginBottom: hp('4%'),
   },
-  uploadButton: {
-    backgroundColor: '#003366',
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: wp('4%'),
+  },
+  loadingText: {
+    marginTop: hp('1%'),
+    color: '#FFFFFF',
+    fontWeight: '500',
+    fontSize: wp('4%'),
+  },
+  resultCard: {
+    backgroundColor: '#FFFFFF',
+    padding: wp('5%'),
+    borderRadius: wp('4%'),
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+    marginBottom: hp('3%'),
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+  },
+  statusIndicator: {
+    position: 'absolute',
+    top: wp('5%'),
+    left: 0,
+    width: wp('1%'),
+    height: wp('10%'),
+    borderTopRightRadius: wp('1%'),
+    borderBottomRightRadius: wp('1%'),
+  },
+  predictionText: {
+    fontSize: wp('6%'),
+    fontWeight: 'bold',
+    marginBottom: hp('1%'),
+    paddingLeft: wp('3%'),
+  },
+  descriptionText: {
+    fontSize: wp('4%'),
+    color: '#4B5563',
+    lineHeight: wp('6.5%'),
+    paddingLeft: wp('3%'),
+    marginBottom: hp('2%'),
+  },
+  treatmentButton: {
+    borderRadius: wp('3%'),
+    overflow: 'hidden',
+  },
+  buttonContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: wp('4%'),
-    borderRadius: wp('2%'),
-    width: wp('80%'),
-    marginBottom: hp('2%'),
+    paddingVertical: hp('2%'),
+    paddingHorizontal: wp('4%'),
   },
-  submitButton: {
-    backgroundColor: '#28a745',
-    padding: wp('4%'),
-    borderRadius: wp('2%'),
-    width: wp('80%'),
-    alignItems: 'center',
-  },
-  buttonText: {
-    color: 'white',
-    fontSize: wp('4%'),
+  treatmentButtonText: {
+    color: '#FFFFFF',
     fontWeight: '600',
+    fontSize: wp('4.2%'),
   },
-  modalContainer: {
-    flex: 1,
-    justifyContent: 'center',
+  buttonIcon: {
+    marginLeft: wp('2%'),
+  },
+  treatmentContainer: {
+    marginTop: hp('2%'),
+    paddingTop: hp('2%'),
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  treatmentTitle: {
+    fontSize: wp('4.5%'),
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: hp('1%'),
+  },
+  treatmentText: {
+    fontSize: wp('3.8%'),
+    color: '#4B5563',
+    lineHeight: wp('6%'),
+  },
+  hideButton: {
+    flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    paddingVertical: hp('1%'),
+    marginTop: hp('2%'),
   },
-  modalContent: {
-    backgroundColor: 'white',
-    padding: wp('5%'),
-    borderRadius: wp('3%'),
-    width: wp('80%'),
-    maxHeight: hp('60%'),
-  },
-  modalTitle: {
-    fontSize: wp('5%'),
-    fontWeight: 'bold',
-    color: '#003366',
-    marginBottom: hp('2%'),
-    textAlign: 'center',
-  },
-  modalText: {
+  hideButtonText: {
+    color: '#6A994E',
+    fontWeight: '600',
     fontSize: wp('4%'),
-    color: '#1F2937',
+    marginRight: wp('2%'),
+  },
+  buttonContainer: {
     marginBottom: hp('3%'),
   },
-  modalButton: {
-    backgroundColor: '#003366',
-    padding: wp('3%'),
-    borderRadius: wp('2%'),
-    alignItems: 'center',
+  buttonWrapper: {
+    marginBottom: hp('2%'),
+  },
+  uploadButton: {
+    borderRadius: wp('3%'),
+    overflow: 'hidden',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+  },
+  cancelButton: {
+    borderRadius: wp('3%'),
+    overflow: 'hidden',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+  },
+  analyzeButton: {
+    borderRadius: wp('3%'),
+    overflow: 'hidden',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+  },
+  disabledButton: {
+    opacity: 0.6,
+  },
+  buttonText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+    fontSize: wp('4.2%'),
+    marginLeft: wp('2%'),
   },
 });
 

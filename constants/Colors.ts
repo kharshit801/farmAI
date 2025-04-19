@@ -1,5 +1,5 @@
 // constants/Colors.ts
-const tintColorLight = '#1f1f1f'; // Green for plant theme
+const tintColorLight = '#1f1f1f'; 
 const tintColorDark = '#1f1f1f';
 
 export default {

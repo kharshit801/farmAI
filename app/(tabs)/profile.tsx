@@ -7,6 +7,7 @@ import {
   SafeAreaView,
   TouchableOpacity,
   ScrollView,
+  Alert,
 } from "react-native";
 
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
@@ -14,6 +15,7 @@ import images from "@/assets/images";
 import Header from "@/components/Header";
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
+import PrimaryButton from "@/components/PrimaryButton";
 
 export default function ProfileScreen() {
   return (
@@ -65,7 +67,7 @@ export default function ProfileScreen() {
         {/* Feedback Section */}
         <View style={styles.sectionCard}>
           <View style={styles.feedbackIconContainer}>
-            <MaterialIcons name="feedback" size={wp('6%')} color="#2e8b76" />
+            <MaterialIcons name="feedback" size={wp('6%')} color="#6A994E" />
           </View>
           <View style={styles.sectionTextContainer}>
             <Text style={styles.sectionTitle}>Enjoying FarmAI?</Text>
@@ -142,7 +144,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   signInText: {
-    color: "#2e8b76",
+    color: "#6A994E",
     fontWeight: "600",
     fontSize: wp('3.5%'),
   },
@@ -175,7 +177,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: wp('4%'),
     fontWeight: "600",
-    color: "#2e8b76",
+    color: "#1f1f1f",
     marginBottom: hp('0.5%'),
   },
   sectionDescription: {
@@ -187,7 +189,7 @@ const styles = StyleSheet.create({
     padding: wp('2%'),
   },
   shareButtonText: {
-    color: "#2e8b76",
+    color: "#6A994E",
     fontWeight: "600",
     fontSize: wp('3.5%'),
   },
@@ -207,7 +209,7 @@ const styles = StyleSheet.create({
     marginTop: hp('2%'),
     backgroundColor: "#6A994E",
     paddingVertical: hp('2%'),
-    borderRadius: wp('6%'),
+    borderRadius: wp('2%'),
     alignItems: "center",
     shadowColor: "#000",
     shadowOffset: {
