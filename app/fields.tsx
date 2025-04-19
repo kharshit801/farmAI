@@ -15,9 +15,11 @@ import {
 import MapView, { Polygon, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { MaterialIcons } from '@expo/vector-icons';
+import { Router, useRouter } from 'expo-router';
 
 // Import types
 import { Field, NewField, Coordinate, MapRegion } from '../components/type';
+import  { useField } from '../context/fieldcontext'
 
 // Import utility files
 import { loadFields, saveField } from '../components/utils/fieldStorage';
@@ -28,6 +30,9 @@ import {
 } from '../components/cropService';
 
 const Fields: React.FC = () => {
+  const { setSelectedField } = useField();
+
+  const router=useRouter();
   const [fields, setFields] = useState<Field[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isMapModalVisible, setMapModalVisible] = useState(false);
@@ -273,10 +278,22 @@ const Fields: React.FC = () => {
             </View>
           </View>
         )}
+        
+        {/* Updated Manage Field button */}
+        <TouchableOpacity 
+          style={styles.manageFieldButton}
+          onPress={() => {
+            // Set the selected field in context before navigation
+            setSelectedField(item);
+            router.push('/managefield');
+          }}
+        >
+          <Text style={styles.manageFieldButtonText}>Manage Field</Text>
+          <MaterialIcons name="chevron-right" size={18} color="white" />
+        </TouchableOpacity>
       </View>
     </View>
-  );
-
+  )
   const renderPageIndicator = () => {
     const totalPages = Math.ceil(fields.length / 1); // 1 field per page
     
@@ -323,6 +340,7 @@ const Fields: React.FC = () => {
           );
           setCurrentPage(newPage);
         }}
+        
       />
       
       {renderPageIndicator()}
@@ -776,6 +794,22 @@ const styles = StyleSheet.create({
   },
   paginationDotActive: {
     backgroundColor: '#0055FF',
+  },
+  manageFieldButton: {
+    backgroundColor: '#0055FF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginTop: 12,
+  },
+  manageFieldButtonText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 14,
+    marginRight: 4,
   },
 });
 

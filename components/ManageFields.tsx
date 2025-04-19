@@ -5,6 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
 import LottieView from 'lottie-react-native';
 import { useRouter } from 'expo-router'; // Import useRouter
+import fields from './../app/fields'
 
 const ManageFields: React.FC = () => {
   const router = useRouter(); // Get the router instance
