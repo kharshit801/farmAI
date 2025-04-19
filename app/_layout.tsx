@@ -91,9 +91,9 @@ export default function RootLayout() {
   }
 
   return (
-
+<FieldProvider>
     <DiagnosisProvider>
-      <FieldProvider>
+      
     <LocationContext.Provider value={{ location, errorMsg, requestLocationPermission }}>
       <AnimatedSplashScreen image={require('../assets/images/logoPlanta.png')}>
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
@@ -101,7 +101,8 @@ export default function RootLayout() {
         </ThemeProvider>
       </AnimatedSplashScreen>
     </LocationContext.Provider>
-    </FieldProvider>
+    
     </DiagnosisProvider>
+    </FieldProvider>
   );
 }

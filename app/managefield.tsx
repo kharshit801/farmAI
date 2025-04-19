@@ -1,4 +1,3 @@
-// app/managefield.js
 import React, { useEffect, useState } from "react";
 import {
   StyleSheet,
@@ -16,58 +15,8 @@ import { MaterialIcons, Feather, Ionicons } from "@expo/vector-icons";
 import { useField } from "../context/fieldcontext";
 import { calculateCenter } from "../components/cropService";
 
-// Mocked weather API function (replace with actual API call)
-const fetchWeatherData = async (
-  lat: number,
-  lon: number
-): Promise<{ current: any; daily: any[] }> => {
-  // Simulating API request delay
-  await new Promise((resolve) => setTimeout(resolve, 1000));
-
-  // Mock weather data
-  return {
-    current: {
-      temp: 28, // Celsius
-      weather: {
-        main: "Clear",
-        description: "Clear sky",
-        icon: "01d",
-      },
-      humidity: 65,
-      wind_speed: 4.2,
-      precipitation: 0,
-      uvi: 7,
-      clouds: 10,
-    },
-    daily: [
-      {
-        temp: { day: 28, min: 22, max: 30 },
-        precipitation: 0,
-        weather: { main: "Clear" },
-      },
-      {
-        temp: { day: 27, min: 21, max: 29 },
-        precipitation: 20,
-        weather: { main: "Rain" },
-      },
-      {
-        temp: { day: 26, min: 20, max: 28 },
-        precipitation: 40,
-        weather: { main: "Rain" },
-      },
-      {
-        temp: { day: 29, min: 23, max: 31 },
-        precipitation: 10,
-        weather: { main: "Clouds" },
-      },
-      {
-        temp: { day: 30, min: 24, max: 32 },
-        precipitation: 0,
-        weather: { main: "Clear" },
-      },
-    ],
-  };
-};
+// API key for OpenWeatherMap
+const OPENWEATHERMAP_API_KEY = '5942ca62c79ba3159881b814558fb0ae';
 
 const getWeatherIcon = (condition: string) => {
   switch (condition.toLowerCase()) {
@@ -89,6 +38,7 @@ const getWeatherIcon = (condition: string) => {
 const ManageField = () => {
   const router = useRouter();
   const { selectedField } = useField();
+
   interface WeatherData {
     current: {
       temp: number;
@@ -112,6 +62,7 @@ const ManageField = () => {
 
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const loadWeatherData = async () => {
@@ -121,18 +72,69 @@ const ManageField = () => {
       }
 
       try {
+        setLoading(true);
+        setError(null);
+
         // Get field center coordinates
         const centerPoint = calculateCenter(selectedField.coordinates);
 
-        // Fetch weather data
-        const data = await fetchWeatherData(
-          centerPoint.latitude,
-          centerPoint.longitude
+        // Fetch current weather data
+        const currentResponse = await fetch(
+          `https://api.openweathermap.org/data/2.5/weather?lat=${centerPoint.latitude}&lon=${centerPoint.longitude}&units=metric&appid=${OPENWEATHERMAP_API_KEY}`
         );
 
-        setWeather(data);
-      } catch (error) {
+        if (!currentResponse.ok) {
+          const errorData = await currentResponse.json();
+          throw new Error(errorData.message || 'Failed to fetch current weather data');
+        }
+
+        const currentData = await currentResponse.json();
+
+        // Fetch 5-day forecast data
+        const forecastResponse = await fetch(
+          `https://api.openweathermap.org/data/2.5/forecast?lat=${centerPoint.latitude}&lon=${centerPoint.longitude}&units=metric&appid=${OPENWEATHERMAP_API_KEY}`
+        );
+
+        if (!forecastResponse.ok) {
+          const errorData = await forecastResponse.json();
+          throw new Error(errorData.message || 'Failed to fetch forecast data');
+        }
+
+        const forecastData = await forecastResponse.json();
+
+        // Structure the weather data to match the expected format
+        const formattedWeather: WeatherData = {
+          current: {
+            temp: Math.round(currentData.main.temp),
+            weather: {
+              main: currentData.weather[0].main,
+              description: currentData.weather[0].description,
+              icon: currentData.weather[0].icon,
+            },
+            humidity: currentData.main.humidity,
+            wind_speed: currentData.wind.speed,
+            precipitation: currentData.rain ? currentData.rain["1h"] || 0 : 0,
+            uvi: currentData.uvi || 0, // Note: UVI is not available in free tier, using 0 as fallback
+            clouds: currentData.clouds.all,
+          },
+          daily: forecastData.list
+            .filter((item: any) => item.dt_txt.includes("12:00:00")) // Get daily data at noon
+            .slice(0, 5) // Limit to 5 days
+            .map((item: any) => ({
+              temp: {
+                day: Math.round(item.main.temp),
+                min: Math.round(item.main.temp_min),
+                max: Math.round(item.main.temp_max),
+              },
+              precipitation: item.rain ? item.rain["3h"] || 0 : 0,
+              weather: { main: item.weather[0].main },
+            })),
+        };
+
+        setWeather(formattedWeather);
+      } catch (error: any) {
         console.error("Error fetching weather data:", error);
+        setError(error.message || 'Unable to load weather data');
       } finally {
         setLoading(false);
       }
@@ -155,6 +157,16 @@ const ManageField = () => {
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#0055FF" />
           <Text style={styles.loadingText}>Loading field data...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.weatherDescription}>{error}</Text>
         </View>
       </SafeAreaView>
     );
@@ -252,10 +264,10 @@ const ManageField = () => {
                   color="#0055FF"
                 />
                 <Text style={styles.temperatureText}>
-                  {weather.current.temp ?? "N/A"}°C
+                  {weather.current.temp}°C
                 </Text>
                 <Text style={styles.weatherDescription}>
-                  {weather.current.weather.description ?? "N/A"}
+                  {weather.current.weather.description}
                 </Text>
               </View>
 
@@ -302,7 +314,7 @@ const ManageField = () => {
 
           {weather ? (
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {weather?.daily.map((day, index) => (
+              {weather.daily.map((day, index) => (
                 <View key={index} style={styles.forecastDay}>
                   <Text style={styles.forecastDayText}>
                     {["Today", "Tomorrow", `Day ${index + 1}`][index] ||
@@ -333,38 +345,6 @@ const ManageField = () => {
               Forecast data is not available.
             </Text>
           )}
-        </View>
-        {/* Weather Forecast */}
-        <View style={styles.forecastCard}>
-          <Text style={styles.sectionTitle}>5-Day Forecast</Text>
-
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {weather?.daily.map((day, index) => (
-              <View key={index} style={styles.forecastDay}>
-                <Text style={styles.forecastDayText}>
-                  {["Today", "Tomorrow", `Day ${index + 1}`][index] ||
-                    `Day ${index + 1}`}
-                </Text>
-                <Feather
-                  name={getWeatherIcon(day.weather.main)}
-                  size={32}
-                  color="#0055FF"
-                />
-                <Text style={styles.forecastTemp}>{day.temp.day}°C</Text>
-                <View style={styles.tempRange}>
-                  <Text style={styles.tempRangeText}>
-                    {day.temp.min}° | {day.temp.max}°
-                  </Text>
-                </View>
-                <View style={styles.precipitationIndicator}>
-                  <Feather name="droplet" size={12} color="#0055FF" />
-                  <Text style={styles.precipitationText}>
-                    {day.precipitation}%
-                  </Text>
-                </View>
-              </View>
-            ))}
-          </ScrollView>
         </View>
 
         {/* Field Actions */}
