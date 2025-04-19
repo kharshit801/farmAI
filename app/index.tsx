@@ -2,7 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
+import { LogBox } from 'react-native';
 
+// Must run before any component is registered/rendered:
+if (__DEV__) {
+  LogBox.ignoreAllLogs(true);
+}
 export default function Index() {
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
