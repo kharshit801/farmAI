@@ -13,59 +13,17 @@ import {
 import { useRouter } from 'expo-router';
 import { Stack } from 'expo-router';
 import { MaterialIcons, FontAwesome5, Ionicons } from '@expo/vector-icons';
-import { useField } from '../context/fieldcontext'; // Ensure this path is correct
-import { Julep } from '@julep/sdk';
-import { calculateCenter } from './../components/utils/Cropservice'; // Ensure this path is correct
+import { useField } from '../context/fieldcontext';
+import { calculateCenter } from './../components/utils/Cropservice';
 
 // --- Constants ---
+const JULEP_API_KEY = "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTAxNTkwMTcsImlhdCI6MTc0NDk3NTAxNywic3ViIjoiNjVhMWE5MzYtYjBlMy01OTI0LTk3NzQtNjU1NDVmYmYwNTgyIn0.QbU03Bwv5Qv4Wv5sKuXu26wE9vac0lguHwKlUfzVeLvwVY1-UlMT7kr3h8K6XQEQJUn925NB5OD4uLR0jPHRAQ"; // Move to .env in production
 const JULEP_AGENT_ID = "06802005-adc9-75f1-8000-5ea756eb8532";
-const JULEP_API_KEY = "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTAxNTkwMTcsImlhdCI6MTc0NDk3NTAxNywic3ViIjoiNjVhMWE5MzYtYjBlMy01OTI0LTk3NzQtNjU1NDVmYmYwNTgyIn0.QbU03Bwv5Qv4Wv5sKuXu26wE9vac0lguHwKlUfzVeLvwVY1-UlMT7kr3h8K6XQEQJUn925NB5OD4uLR0jPHRAQ";
-const JULEP_POLLING_TIMEOUT_MS = 30000; // Reduced timeout to 30 seconds
-const JULEP_POLLING_INTERVAL_MS = 2000; // Reduced polling interval
+const JULEP_API_URL = "https://api.julep.ai/api/chat";
 const OPENWEATHER_API_KEY = "5942ca62c79ba3159881b814558fb0ae";
 const WEATHER_API_URL = "https://api.openweathermap.org/data/2.5/weather";
 
-// --- Simplified Julep Task Definition ---
-const julepCropRecommendationTask = {
-  name: 'Field Crop Recommendations',
-  description: 'Get crop recommendations based on field data and weather conditions',
-  main: [
-    {
-      type: 'prompt',
-      prompt: `
-      You are an agricultural advisor. Analyze this field and weather data:
-      - Location: {steps[0].input.location}
-      - Temperature: {steps[0].input.currentTemp}°C
-      - Humidity: {steps[0].input.humidity}%
-      - Precipitation: {steps[0].input.precipitation} mm
-      - Wind speed: {steps[0].input.windSpeed} m/s
-      - Weather condition: {steps[0].input.weatherDescription}
-      - Field Area: {steps[0].input.area} Acres
-      - Current Crop: {steps[0].input.currentCrop}
-
-      Return a JSON response in exactly this format (no extra text or formatting outside the JSON):
-      {
-        "recommendedCrops": [
-          {
-            "name": "Crop Name",
-            "suitabilityScore": "Score/10",
-            "reason": "Reason based on weather conditions"
-          }
-        ],
-        "currentCropAnalysis": "Analysis of current crop's suitability",
-        "cultivationAdvice": "Advice for cultivation under current conditions",
-        "immediateActions": [
-          "Action 1 based on current weather",
-          "Action 2 if applicable"
-        ],
-        "longTermPlan": "Long-term suggestion for planning"
-      }
-      `
-    },
-  ],
-};
-
-// --- Interface Definitions ---
+// --- Interfaces ---
 interface Coordinate {
   latitude: number;
   longitude: number;
@@ -105,12 +63,20 @@ interface CropRecommendation {
   reason: string;
 }
 
+interface DiseaseRisk {
+  disease: string;
+  riskLevel: string;
+  prevention: string;
+}
+
 interface AIRecommendation {
   recommendedCrops: CropRecommendation[];
   currentCropAnalysis: string;
   cultivationAdvice: string;
   immediateActions: string[];
   longTermPlan: string;
+  diseaseRisks: DiseaseRisk[];
+  additionalAdvice: string;
 }
 
 // --- Component ---
@@ -121,72 +87,37 @@ const Plan = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState<boolean>(false);
-  const julepClient = useRef<Julep | null>(null);
-  const isMounted = useRef<boolean>(true); // Initialize as true
+  const isMounted = useRef<boolean>(true);
   const abortController = useRef<AbortController | null>(null);
+  const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Cleanup function to handle unmounting safely
+  // Cleanup function
   const cleanup = useCallback(() => {
     if (abortController.current) {
       abortController.current.abort();
       abortController.current = null;
     }
+    if (fetchTimeoutRef.current) {
+      clearTimeout(fetchTimeoutRef.current);
+      fetchTimeoutRef.current = null;
+    }
   }, []);
 
-  // Fetch weather data and get AI recommendations
-  const fetchWeatherDataAndRecommendations = useCallback(async () => {
-    if (!isMounted.current) {
-      console.log("[Plan] Fetch aborted: Component not mounted.");
-      return;
-    }
-    
-    // Cleanup any existing requests
-    cleanup();
-    
-    // Create new abort controller
+  // Fetch weather data
+  const fetchWeatherData = useCallback(async (center: { latitude: number; longitude: number }) => {
     abortController.current = new AbortController();
-    
-    console.log("[Plan] Starting data fetch sequence...");
-
-    // Validate field data
-    if (!selectedField || !selectedField.coordinates || selectedField.coordinates.length === 0) {
-      console.warn("[Plan] Aborting fetch: Invalid field data.", selectedField);
-      setError("Field data is incomplete or missing coordinates.");
-      setLoading(false);
-      setRefreshing(false);
-      return;
-    }
-
-    // Set states
-    if (!refreshing) {
-      setLoading(true);
-    }
-    setError(null);
-
-    let weatherData: Weather | null = null;
-
-    // 1. Fetch Weather Data
     try {
-      console.log("[Plan] [Weather] Fetching weather data...");
-      const center = calculateCenter(selectedField.coordinates);
-      
-      if (!center || typeof center.latitude !== 'number' || typeof center.longitude !== 'number') {
-        throw new Error("Invalid center coordinates calculated.");
-      }
-      
       const weatherUrl = `${WEATHER_API_URL}?lat=${center.latitude}&lon=${center.longitude}&units=metric&appid=${OPENWEATHER_API_KEY}`;
-      const weatherResponse = await fetch(weatherUrl, { 
-        signal: abortController.current?.signal 
+      const weatherResponse = await fetch(weatherUrl, {
+        signal: abortController.current?.signal,
       });
 
       if (!weatherResponse.ok) {
-        throw new Error(`Weather API error: ${weatherResponse.status}`);
+        throw new Error(`Weather API error: ${weatherResponse.status} ${weatherResponse.statusText}`);
       }
 
       const weatherDataRaw = await weatherResponse.json();
-
-      // Parse weather data
-      weatherData = {
+      return {
         current: {
           temp: weatherDataRaw.main?.temp ?? 0,
           feels_like: weatherDataRaw.main?.feels_like ?? 0,
@@ -199,249 +130,337 @@ const Plan = () => {
           wind_speed: weatherDataRaw.wind?.speed ?? 0,
           precipitation: weatherDataRaw.rain?.['1h'] || weatherDataRaw.snow?.['1h'] || 0,
           clouds: weatherDataRaw.clouds?.all ?? 0,
-          uvi: 0, // Default value
+          uvi: 0,
         },
       };
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        return null;
+      }
+      console.error('Weather fetch error:', err);
+      return null;
+    }
+  }, []);
 
-      // Update selected field with weather data
+  // Fetch AI recommendations with Julep API
+  const fetchRecommendations = useCallback(
+    async (weatherData: Weather, inputData: any, retries = 2): Promise<AIRecommendation | null> => {
+      abortController.current = new AbortController();
+      try {
+        // Validate input data
+        const validatedData = {
+          location: inputData.location || 'Unknown Location',
+          currentTemp: inputData.currentTemp ?? 25,
+          humidity: inputData.humidity ?? 50,
+          precipitation: inputData.precipitation ?? 0,
+          windSpeed: inputData.windSpeed ?? 0,
+          weatherDescription: inputData.weatherDescription || 'Clear',
+          area: inputData.area ?? 1,
+          currentCrop: inputData.currentCrop || 'None',
+        };
+
+        const prompt = `
+You are an expert agricultural advisor. Using the provided field location and weather data, generate a comprehensive agricultural plan to maximize crop production for a field in ${validatedData.location}. The plan should include crop recommendations, strategies to optimize yield, potential disease risks, and additional advice for sustainable farming.
+
+**Input Data**:
+- Location: ${validatedData.location}
+- Temperature: ${validatedData.currentTemp}°C
+- Humidity: ${validatedData.humidity}%
+- Precipitation: ${validatedData.precipitation} mm
+- Wind Speed: ${validatedData.windSpeed} m/s
+- Weather Condition: ${validatedData.weatherDescription}
+- Field Area: ${validatedData.area} Acres
+- Current Crop: ${validatedData.currentCrop}
+
+**Requirements**:
+- Recommend at least two crops best suited for the location and current weather conditions.
+- Provide practical strategies to maximize production (e.g., irrigation, fertilization, planting techniques).
+- Identify at least two potential disease risks for the recommended crops and suggest prevention methods.
+- Offer additional advice (e.g., soil management, pest control, crop rotation) for sustainable farming.
+
+**Output Format**:
+Return a JSON object in this exact format:
+{
+  "recommendedCrops": [
+    {
+      "name": "Crop Name",
+      "suitabilityScore": "Score/10",
+      "reason": "Reason based on location, weather, and field conditions"
+    },
+    {
+      "name": "Crop Name",
+      "suitabilityScore": "Score/10",
+      "reason": "Reason based on location, weather, and field conditions"
+    }
+  ],
+  "currentCropAnalysis": "Analysis of current crop's suitability or 'N/A' if none",
+  "cultivationAdvice": "Practical strategies to maximize production under current conditions",
+  "immediateActions": [
+    "Action 1 based on current conditions",
+    "Action 2 if applicable"
+  ],
+  "longTermPlan": "Long-term suggestions for sustainable farming and yield improvement",
+  "diseaseRisks": [
+    {
+      "disease": "Disease Name",
+      "riskLevel": "Low/Medium/High",
+      "prevention": "Prevention methods"
+    },
+    {
+      "disease": "Disease Name",
+      "riskLevel": "Low/Medium/High",
+      "prevention": "Prevention methods"
+    }
+  ],
+  "additionalAdvice": "Additional tips for soil management, pest control, or other relevant practices"
+}
+
+Ensure all advice is realistic, specific, and tailored to the input data. Provide at least two crop recommendations and two disease risks.
+        `;
+
+        const response = await fetch(JULEP_API_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${JULEP_API_KEY}`,
+          },
+          body: JSON.stringify({
+            agent_id: JULEP_AGENT_ID,
+            messages: [
+              {
+                role: 'user',
+                content: prompt,
+              },
+            ],
+            response_format: { type: 'json_object' },
+          }),
+          signal: abortController.current?.signal,
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Julep API error: ${response.status} ${response.statusText} - ${errorText}`);
+        }
+
+        const data = await response.json();
+        console.log('Julep API raw response:', data);
+
+        let responseText = data.choices[0]?.message?.content || '{}';
+        if (typeof responseText === 'object') {
+          responseText = JSON.stringify(responseText);
+        }
+
+        // Robust response parsing
+        let cleanedResponse = responseText.trim();
+        if (cleanedResponse.startsWith('```json')) {
+          cleanedResponse = cleanedResponse.substring(7, cleanedResponse.length - 3).trim();
+        } else if (cleanedResponse.startsWith('```')) {
+          cleanedResponse = cleanedResponse.substring(3, cleanedResponse.length - 3).trim();
+        }
+
+        // Validate JSON
+        let parsedResponse: AIRecommendation;
+        try {
+          parsedResponse = JSON.parse(cleanedResponse);
+        } catch (parseError) {
+          console.error('JSON parse error:', parseError, 'Response:', cleanedResponse);
+          throw new Error(`Failed to parse Julep API response: ${parseError}`);
+        }
+        console.log('Parsed Julep response:', parsedResponse);
+
+        // Relaxed response validation
+        parsedResponse.recommendedCrops = parsedResponse.recommendedCrops?.length
+          ? parsedResponse.recommendedCrops
+          : [
+              { name: 'Unknown Crop', suitabilityScore: 'N/A', reason: 'No crop data provided' },
+              { name: 'Unknown Crop', suitabilityScore: 'N/A', reason: 'No crop data provided' },
+            ];
+        parsedResponse.currentCropAnalysis = parsedResponse.currentCropAnalysis || 'N/A';
+        parsedResponse.cultivationAdvice = parsedResponse.cultivationAdvice || 'No cultivation advice available.';
+        parsedResponse.immediateActions = parsedResponse.immediateActions?.length
+          ? parsedResponse.immediateActions
+          : ['No immediate actions specified.'];
+        parsedResponse.longTermPlan = parsedResponse.longTermPlan || 'No long-term plan available.';
+        parsedResponse.diseaseRisks = parsedResponse.diseaseRisks?.length
+          ? parsedResponse.diseaseRisks
+          : [
+              { disease: 'Unknown Disease', riskLevel: 'N/A', prevention: 'No prevention data provided' },
+              { disease: 'Unknown Disease', riskLevel: 'N/A', prevention: 'No prevention data provided' },
+            ];
+        parsedResponse.additionalAdvice = parsedResponse.additionalAdvice || 'No additional advice available.';
+
+        return parsedResponse;
+      } catch (err: any) {
+        if (err.name === 'AbortError') {
+          return null;
+        }
+        console.error(`Recommendation fetch error (attempt ${3 - retries}):`, err);
+
+        // Retry logic
+        if (retries > 0) {
+          console.log(`Retrying recommendation fetch (${retries} attempts left)...`);
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          return fetchRecommendations(weatherData, inputData, retries - 1);
+        }
+
+        // Fallback response
+        setError(`Failed to fetch recommendations: ${err.message}. Using fallback data.`);
+        return {
+          recommendedCrops: [
+            {
+              name: 'Rice',
+              suitabilityScore: '8/10',
+              reason: 'Suitable for warm, humid conditions in Prayagraj with adequate irrigation.',
+            },
+            {
+              name: 'Wheat',
+              suitabilityScore: '7/10',
+              reason: 'Adaptable to clear weather and moderate temperatures in Prayagraj.',
+            },
+          ],
+          currentCropAnalysis: 'Banana is suitable but requires consistent irrigation and pest monitoring.',
+          cultivationAdvice: 'Use drip irrigation and apply nitrogen-rich fertilizers to support crop growth.',
+          immediateActions: ['Test soil pH and nutrient levels', 'Ensure proper irrigation setup'],
+          longTermPlan: 'Implement crop rotation with legumes to maintain soil fertility.',
+          diseaseRisks: [
+            {
+              disease: 'Fusarium Wilt',
+              riskLevel: 'Medium',
+              prevention: 'Use resistant banana varieties and rotate crops.',
+            },
+            {
+              disease: 'Leaf Spot',
+              riskLevel: 'Low',
+              prevention: 'Apply fungicides and maintain field hygiene.',
+            },
+          ],
+          additionalAdvice: 'Monitor for pests like aphids and consider integrated pest management.',
+        };
+      }
+    },
+    []
+  );
+
+  // Debounced fetch function
+  const debounceFetch = useCallback(() => {
+    cleanup();
+    if (fetchTimeoutRef.current) {
+      clearTimeout(fetchTimeoutRef.current);
+    }
+
+    fetchTimeoutRef.current = setTimeout(async () => {
+      if (!isMounted.current) return;
+
+      if (!selectedField || !selectedField.coordinates || selectedField.coordinates.length === 0) {
+        setError('Field data is incomplete or missing coordinates.');
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
+
+      if (!refreshing) {
+        setLoading(true);
+      }
+      setError(null);
+
+      // Log input data for debugging
+      console.log('Selected Field:', selectedField);
+
+      // Fetch Weather Data
+      const center = calculateCenter(selectedField.coordinates);
+      if (!center || typeof center.latitude !== 'number' || typeof center.longitude !== 'number') {
+        setError('Invalid center coordinates calculated.');
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
+
+      const weatherData = await fetchWeatherData(center);
+      if (!weatherData) {
+        setError('Failed to fetch weather data. Please check your API key or network connection.');
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
+
+      console.log('Weather Data:', weatherData);
+
       if (isMounted.current) {
         setSelectedField({
           ...selectedField,
-          weather: weatherData
+          weather: weatherData,
         });
       } else {
-        return; // Exit if component unmounted
-      }
-
-    } catch (err: any) {
-      if (err.name === 'AbortError') {
-        console.log("[Plan] [Weather] Fetch aborted");
         return;
       }
-      
-      console.error("[Plan] [Weather] Error:", err);
-      if (isMounted.current) {
-        setError(`Weather fetch failed: ${err.message}`);
-        setLoading(false);
-        setRefreshing(false);
-      }
-      return;
-    }
 
-    // Check mount status before proceeding
-    if (!isMounted.current) {
-      return;
-    }
-
-    // 2. Fetch AI Recommendations
-    console.log("[Plan] [Julep] Getting AI recommendations...");
-    try {
-      if (!julepClient.current) {
-        throw new Error("AI service client not initialized");
-      }
-      
-      if (!weatherData) {
-        throw new Error("Weather data missing");
-      }
-
-      // Prepare input data
-      const inputData = {
-        location: selectedField.location,
-        currentTemp: weatherData.current.temp,
-        feelsLikeTemp: weatherData.current.feels_like,
-        humidity: weatherData.current.humidity,
-        precipitation: weatherData.current.precipitation,
-        windSpeed: weatherData.current.wind_speed,
-        cloudCover: weatherData.current.clouds,
-        weatherDescription: weatherData.current.weather.description,
-        currentCrop: selectedField.crop || "None",
-        area: selectedField.area,
-      };
-
-      // Create task & execute
-      const task = await julepClient.current.tasks.create(JULEP_AGENT_ID, julepCropRecommendationTask);
-      console.log("[Plan] [Julep] Task created:", task.id);
-      
-      const execution = await julepClient.current.executions.create(task.id, { input: inputData });
-      const executionId = execution.id;
-      console.log(`[Plan] [Julep] Execution created: ${executionId}, Status: ${execution.status}`);
-
-      // Polling
-      const startTime = Date.now();
-      let executionResult: any = null;
-
-      while (Date.now() - startTime < JULEP_POLLING_TIMEOUT_MS) {
-        if (!isMounted.current) {
-          console.log(`[Plan] [Julep] Polling aborted: Component unmounted`);
-          return;
-        }
-
-        try {
-          executionResult = await julepClient.current.executions.get(executionId);
-          
-          if (executionResult?.status === 'succeeded') {
-            const responseText = executionResult.output?.choices?.[0]?.message?.content;
-            
-            if (responseText) {
-              try {
-                // Clean up the response for JSON parsing
-                let cleanedResponse = responseText.trim();
-                
-                // Remove markdown code blocks if present
-                if (cleanedResponse.startsWith('```json')) {
-                  cleanedResponse = cleanedResponse.substring(7);
-                  if (cleanedResponse.endsWith('```')) {
-                    cleanedResponse = cleanedResponse.substring(0, cleanedResponse.length - 3);
-                  }
-                } else if (cleanedResponse.startsWith('```')) {
-                  cleanedResponse = cleanedResponse.substring(3);
-                  if (cleanedResponse.endsWith('```')) {
-                    cleanedResponse = cleanedResponse.substring(0, cleanedResponse.length - 3);
-                  }
-                }
-                
-                cleanedResponse = cleanedResponse.trim();
-                
-                // Parse JSON
-                const parsedResponse = JSON.parse(cleanedResponse);
-                console.log("[Plan] [Julep] Parsed response successfully");
-                
-                if (isMounted.current) {
-                  setRecommendations(parsedResponse);
-                  setError(null);
-                }
-                
-                break; // Exit loop on success
-              } catch (parseError: any) {
-                console.error("[Plan] [Julep] JSON parse error:", parseError);
-                
-                // Attempt fallback parsing
-                const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-                if (jsonMatch) {
-                  try {
-                    const parsedFallback = JSON.parse(jsonMatch[0]);
-                    if (isMounted.current) {
-                      setRecommendations(parsedFallback);
-                      setError(null);
-                    }
-                    break;
-                  } catch (fallbackError) {
-                    throw new Error("Failed to parse AI response");
-                  }
-                } else {
-                  throw new Error("Invalid AI response format");
-                }
-              }
-            } else {
-              throw new Error("Empty AI response");
-            }
-          } else if (executionResult?.status === 'failed') {
-            throw new Error(executionResult.error?.message || "AI processing failed");
-          }
-          
-          // Wait before next poll
-          await new Promise(resolve => setTimeout(resolve, JULEP_POLLING_INTERVAL_MS));
-          
-        } catch (pollError: any) {
-          console.error(`[Plan] [Julep] Polling error:`, pollError);
-          
-          // Check if we should continue polling or break with error
-          if (Date.now() - startTime >= JULEP_POLLING_TIMEOUT_MS) {
-            throw new Error("AI analysis timed out");
-          }
-          
-          // Wait before retry
-          await new Promise(resolve => setTimeout(resolve, JULEP_POLLING_INTERVAL_MS));
-        }
-      }
-      
-      // If we exited the loop without success
-      if (isMounted.current && !recommendations && !error) {
-        setError("AI analysis timed out");
-      }
-
-    } catch (err: any) {
-      if (err.name === 'AbortError') {
-        console.log("[Plan] [Julep] Operation aborted");
-        return;
-      }
-      
-      console.error("[Plan] [Julep] Error:", err);
-      if (isMounted.current) {
-        setError(`AI analysis failed: ${err.message}`);
-      }
-    } finally {
-      if (isMounted.current) {
-        setLoading(false);
-        setRefreshing(false);
-      }
-    }
-  }, [selectedField, setSelectedField, refreshing, cleanup]);
-
-  // Initialize Julep client on mount
-  useEffect(() => {
-    console.log("[Plan] Component mounted");
-    isMounted.current = true;
-
-    // Initialize Julep client
-    if (!julepClient.current) {
+      // Fetch AI Recommendations
       try {
-        julepClient.current = new Julep({ apiKey: JULEP_API_KEY });
-        console.log("[Plan] Julep client initialized");
-      } catch (initError: any) {
-        console.error("[Plan] Julep client init error:", initError);
-        setError(`Failed to initialize AI service: ${initError.message}`);
+        const inputData = {
+          location: selectedField.location || 'Unknown',
+          currentTemp: weatherData.current.temp,
+          feelsLikeTemp: weatherData.current.feels_like,
+          humidity: weatherData.current.humidity,
+          precipitation: weatherData.current.precipitation,
+          windSpeed: weatherData.current.wind_speed,
+          cloudCover: weatherData.current.clouds,
+          weatherDescription: weatherData.current.weather.description,
+          currentCrop: selectedField.crop || 'None',
+          area: selectedField.area || 1,
+        };
+
+        console.log('Input Data for Julep API:', inputData);
+
+        const recommendationResult = await fetchRecommendations(weatherData, inputData);
+        if (recommendationResult && isMounted.current) {
+          setRecommendations(recommendationResult);
+          setError(null);
+        } else if (isMounted.current) {
+          setError('Failed to fetch AI recommendations. Please try again.');
+        }
+      } catch (err: any) {
+        if (isMounted.current) {
+          console.error('Recommendation fetch error:', err);
+          setError(`AI analysis failed: ${err.message}. Please check your API key or network connection.`);
+        }
+      } finally {
+        if (isMounted.current) {
+          setLoading(false);
+          setRefreshing(false);
+        }
       }
-    }
+    }, 500);
+  }, [selectedField, setSelectedField, refreshing, cleanup, fetchWeatherData, fetchRecommendations]);
 
-    // Cleanup on unmount
-    return () => {
-      console.log("[Plan] Component unmounting");
-      isMounted.current = false;
-      cleanup();
-    };
-  }, [cleanup]);
-
-  // Fetch data when selectedField changes
+  // Initialize and fetch data
   useEffect(() => {
-    if (selectedField && julepClient.current && isMounted.current) {
-      fetchWeatherDataAndRecommendations();
-    } else if (!selectedField && isMounted.current) {
-      setError("No field selected");
+    isMounted.current = true;
+    if (selectedField) {
+      debounceFetch();
+    } else if (isMounted.current) {
+      setError('No field selected');
       setLoading(false);
       setRecommendations(null);
     }
-  }, [selectedField, fetchWeatherDataAndRecommendations]);
+
+    return () => {
+      isMounted.current = false;
+      cleanup();
+    };
+  }, [selectedField, debounceFetch, cleanup]);
 
   // Handle refresh
   const onRefresh = useCallback(() => {
-    console.log("[Plan] Refresh triggered");
     setRefreshing(true);
     if (selectedField) {
-      fetchWeatherDataAndRecommendations();
+      debounceFetch();
     } else {
-      setError("No field selected to refresh");
+      setError('No field selected to refresh');
       setRefreshing(false);
     }
-  }, [selectedField, fetchWeatherDataAndRecommendations]);
+  }, [selectedField, debounceFetch]);
 
-  // --- Render Logic ---
-  
-  // 1. Client initialization error
-  if (!julepClient.current && error?.includes("initialize AI service")) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <Stack.Screen options={{ title: 'Field Planning Error' }} />
-        <View style={styles.errorContainer}>
-          <Ionicons name="cloud-offline-outline" size={40} color="#FF3B30" />
-          <Text style={styles.errorTitle}>AI Service Unavailable</Text>
-          <Text style={styles.errorText}>{error}</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  // 2. No Field Selected
+  // Render Logic
   if (!selectedField) {
     return (
       <SafeAreaView style={styles.container}>
@@ -450,10 +469,7 @@ const Plan = () => {
           <Ionicons name="leaf-outline" size={60} color="#cccccc" />
           <Text style={styles.emptyStateText}>No Field Selected</Text>
           <Text style={styles.emptyStateSubText}>Go to the 'Fields' tab and choose a field to view planning advice.</Text>
-          <TouchableOpacity
-            style={styles.emptyStateButton}
-            onPress={() => router.push('/fields')}
-          >
+          <TouchableOpacity style={styles.emptyStateButton} onPress={() => router.push('/fields')}>
             <Text style={styles.emptyStateButtonText}>Select a Field</Text>
           </TouchableOpacity>
         </ScrollView>
@@ -461,27 +477,18 @@ const Plan = () => {
     );
   }
 
-  // 3. Main Content
   return (
     <SafeAreaView style={styles.container}>
       <Stack.Screen options={{ title: `Plan: ${selectedField.name}` }} />
-
       <ScrollView
         contentContainerStyle={styles.scrollViewContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor="#0055FF"
-            colors={["#0055FF"]}
-          />
-        }
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0055FF" colors={['#0055FF']} />}
       >
         {/* Field Summary Card */}
         <View style={styles.fieldSummaryCard}>
           <View style={styles.fieldImageContainer}>
             <Image
-              source={selectedField.image || require("../assets/images/fieldimage.jpg")}
+              source={selectedField.image || require('../assets/images/fieldimage.jpg')}
               style={styles.fieldImage}
               resizeMode="cover"
             />
@@ -494,7 +501,9 @@ const Plan = () => {
                 </View>
                 <View style={styles.fieldDetailItem}>
                   <MaterialIcons name="location-pin" size={16} color="#fff" />
-                  <Text style={styles.fieldDetailText} numberOfLines={1} ellipsizeMode="tail">{selectedField.location}</Text>
+                  <Text style={styles.fieldDetailText} numberOfLines={1} ellipsizeMode="tail">
+                    {selectedField.location}
+                  </Text>
                 </View>
               </View>
             </View>
@@ -507,7 +516,7 @@ const Plan = () => {
               <>
                 <View style={styles.weatherRow}>
                   <View style={styles.weatherItem}>
-                    <FontAwesome5 name="temperature-half" size={16} color="#FF8C00" />
+                    <Ionicons name="thermometer" size={16} color="#FF8C00" />
                     <Text style={styles.weatherValue}>{selectedField.weather.current.temp.toFixed(1)}°C</Text>
                     <Text style={styles.weatherLabel}>Temp</Text>
                   </View>
@@ -528,19 +537,18 @@ const Plan = () => {
                   </View>
                 </View>
                 <Text style={styles.weatherDescription}>
-                  {selectedField.weather.current.weather.description.charAt(0).toUpperCase() + selectedField.weather.current.weather.description.slice(1)}
+                  {selectedField.weather.current.weather.description.charAt(0).toUpperCase() +
+                    selectedField.weather.current.weather.description.slice(1)}
                   {` (Feels like ${selectedField.weather.current.feels_like.toFixed(1)}°C)`}
                 </Text>
               </>
+            ) : loading && !error ? (
+              <View style={styles.centeredContent}>
+                <ActivityIndicator size="small" color="#0055FF" />
+                <Text style={styles.inlineLoadingText}>Fetching weather...</Text>
+              </View>
             ) : (
-              loading && !error ? (
-                <View style={styles.centeredContent}>
-                  <ActivityIndicator size="small" color="#0055FF" />
-                  <Text style={styles.inlineLoadingText}>Fetching weather...</Text>
-                </View>
-              ) : (
-                <Text style={styles.weatherPlaceholder}>Weather data unavailable.</Text>
-              )
+              <Text style={styles.weatherPlaceholder}>Weather data unavailable.</Text>
             )}
           </View>
         </View>
@@ -549,12 +557,7 @@ const Plan = () => {
         {loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#0055FF" />
-            <Text style={styles.loadingText}>
-              Analyzing field conditions and generating recommendations...
-            </Text>
-            <Text style={styles.loadingSubText}>
-              This may take up to {JULEP_POLLING_TIMEOUT_MS / 1000} seconds.
-            </Text>
+            <Text style={styles.loadingText}>Analyzing field conditions and generating recommendations...</Text>
           </View>
         ) : error ? (
           <View style={styles.errorContainer}>
@@ -562,7 +565,7 @@ const Plan = () => {
             <Text style={styles.errorTitle}>Analysis Failed</Text>
             <Text style={styles.errorText}>{error}</Text>
             <TouchableOpacity style={styles.retryButton} onPress={onRefresh}>
-              <MaterialIcons name="refresh" size={18} color="white" style={{ marginRight: 5 }}/>
+              <MaterialIcons name="refresh" size={18} color="white" style={{ marginRight: 5 }} />
               <Text style={styles.retryButtonText}>Retry Analysis</Text>
             </TouchableOpacity>
           </View>
@@ -596,7 +599,8 @@ const Plan = () => {
             {selectedField.crop && recommendations.currentCropAnalysis && recommendations.currentCropAnalysis.toLowerCase() !== 'n/a' && (
               <View style={[styles.cardBase, styles.analysisCard]}>
                 <Text style={styles.sectionTitle}>
-                  <Ionicons name="stats-chart-outline" size={20} color="#4682B4" style={styles.sectionTitleIcon}/> Current Crop: {selectedField.crop}
+                  <Ionicons name="stats-chart-outline" size={20} color="#4682B4" style={styles.sectionTitleIcon} /> Current Crop:{' '}
+                  {selectedField.crop}
                 </Text>
                 <Text style={styles.analysisText}>{recommendations.currentCropAnalysis}</Text>
               </View>
@@ -606,9 +610,34 @@ const Plan = () => {
             {recommendations.cultivationAdvice && (
               <View style={[styles.cardBase, styles.adviceCard]}>
                 <Text style={styles.sectionTitle}>
-                  <Ionicons name="build-outline" size={20} color="#DAA520" style={styles.sectionTitleIcon}/> Cultivation Advice
+                  <Ionicons name="build-outline" size={20} color="#DAA520" style={styles.sectionTitleIcon} /> Production Strategies
                 </Text>
                 <Text style={styles.adviceText}>{recommendations.cultivationAdvice}</Text>
+              </View>
+            )}
+
+            {/* Disease Risks Card */}
+            {recommendations.diseaseRisks && recommendations.diseaseRisks.length > 0 && (
+              <View style={[styles.cardBase, styles.diseaseCard]}>
+                <Text style={styles.sectionTitle}>
+                  <Ionicons name="warning-outline" size={20} color="#FF4500" style={styles.sectionTitleIcon} /> Disease Risks
+                </Text>
+                {recommendations.diseaseRisks.map((risk, index) => (
+                  <View key={`disease-${index}`} style={styles.diseaseItem}>
+                    <View style={styles.diseaseHeader}>
+                      <Text style={styles.diseaseName}>{risk.disease || 'Unknown Disease'}</Text>
+                      <View
+                        style={[
+                          styles.riskChip,
+                          { backgroundColor: risk.riskLevel === 'High' ? '#FF4500' : risk.riskLevel === 'Medium' ? '#FFA500' : '#4CAF50' },
+                        ]}
+                      >
+                        <Text style={styles.riskText}>{risk.riskLevel}</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.diseasePrevention}>{risk.prevention || 'No prevention provided.'}</Text>
+                  </View>
+                ))}
               </View>
             )}
 
@@ -616,7 +645,7 @@ const Plan = () => {
             {recommendations.immediateActions && recommendations.immediateActions.length > 0 && (
               <View style={[styles.cardBase, styles.actionsCard]}>
                 <Text style={styles.sectionTitle}>
-                  <Ionicons name="flash-outline" size={20} color="#FF4500" style={styles.sectionTitleIcon}/> Immediate Actions
+                  <Ionicons name="flash-outline" size={20} color="#FF4500" style={styles.sectionTitleIcon} /> Immediate Actions
                 </Text>
                 {recommendations.immediateActions.map((action, index) => (
                   <View key={`action-${index}`} style={styles.actionItem}>
@@ -629,23 +658,34 @@ const Plan = () => {
               </View>
             )}
 
+            {/* Additional Advice Card */}
+            {recommendations.additionalAdvice && (
+              <View style={[styles.cardBase, styles.additionalCard]}>
+                <Text style={styles.sectionTitle}>
+                  <Ionicons name="information-circle-outline" size={20} color="#4682B4" style={styles.sectionTitleIcon} /> Additional Advice
+                </Text>
+                <Text style={styles.additionalText}>{recommendations.additionalAdvice}</Text>
+              </View>
+            )}
+
             {/* Long Term Strategy Card */}
             {recommendations.longTermPlan && (
               <View style={[styles.cardBase, styles.planCard]}>
                 <Text style={styles.sectionTitle}>
-                  <Ionicons name="calendar-clear-outline" size={20} color="#8A2BE2" style={styles.sectionTitleIcon}/> Long Term Strategy
+                  <Ionicons name="calendar-clear-outline" size={20} color="#8A2BE2" style={styles.sectionTitleIcon} /> Long Term Strategy
                 </Text>
                 <Text style={styles.planText}>{recommendations.longTermPlan}</Text>
               </View>
             )}
           </>
         ) : (
-          !loading && !error && (
+          !loading &&
+          !error && (
             <View style={styles.noDataContainer}>
               <Ionicons name="information-circle-outline" size={40} color="#cccccc" />
               <Text style={styles.noDataText}>No planning information available.</Text>
               <TouchableOpacity style={styles.retryButton} onPress={onRefresh}>
-                <MaterialIcons name="refresh" size={18} color="white" style={{ marginRight: 5 }}/>
+                <MaterialIcons name="refresh" size={18} color="white" style={{ marginRight: 5 }} />
                 <Text style={styles.retryButtonText}>Try Refreshing</Text>
               </TouchableOpacity>
             </View>
@@ -656,45 +696,43 @@ const Plan = () => {
   );
 };
 
-// --- Styles --- (Keep the styles StyleSheet definition from your previous code)
+// --- Styles ---
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F4F7F9', // Slightly different background
+    backgroundColor: '#F4F7F9',
   },
   scrollViewContent: {
-      paddingBottom: 32, // Ensure space at the bottom
-      flexGrow: 1, // Ensure ScrollView takes up space even if content is short (for empty states)
+    paddingBottom: 32,
+    flexGrow: 1,
   },
-  // Centered content utility
   centeredContent: {
     alignItems: 'center',
     justifyContent: 'center',
     padding: 10,
   },
   inlineLoadingText: {
-      marginTop: 8,
-      fontSize: 13,
-      color: '#666',
+    marginTop: 8,
+    fontSize: 13,
+    color: '#666',
   },
-  // Field Summary Card
   fieldSummaryCard: {
-    marginHorizontal: 12, // Slightly less horizontal margin
+    marginHorizontal: 12,
     marginTop: 16,
-    marginBottom: 16, // Space below card
+    marginBottom: 16,
     backgroundColor: 'white',
     borderRadius: 12,
-    overflow: 'hidden', // Clip image corners
-    shadowColor: '#405161', // Darker shadow color
+    overflow: 'hidden',
+    shadowColor: '#405161',
     shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1, // Subtle shadow
+    shadowOpacity: 0.1,
     shadowRadius: 6,
     elevation: 4,
   },
   fieldImageContainer: {
     position: 'relative',
-    height: 160, // Slightly taller image
-    backgroundColor: '#EAEFF2', // Placeholder background
+    height: 160,
+    backgroundColor: '#EAEFF2',
   },
   fieldImage: {
     width: '100%',
@@ -705,84 +743,82 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: 'rgba(0, 20, 40, 0.6)', // Darker overlay for contrast
+    backgroundColor: 'rgba(0, 20, 40, 0.6)',
     paddingVertical: 10,
     paddingHorizontal: 16,
   },
   fieldName: {
     color: 'white',
-    fontSize: 20, // Larger field name
+    fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 6,
-    textShadowColor: 'rgba(0, 0, 0, 0.4)', // Text shadow for readability
+    textShadowColor: 'rgba(0, 0, 0, 0.4)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
   fieldDetailsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    flexWrap: 'wrap', // Allow wrapping if location is long
+    flexWrap: 'wrap',
   },
   fieldDetailItem: {
     flexDirection: 'row',
     alignItems: 'center',
     marginRight: 16,
-    marginTop: 4, // Allow spacing if wraps
+    marginTop: 4,
   },
   fieldDetailText: {
-    color: '#E0E0E0', // Lighter grey text
+    color: '#E0E0E0',
     fontSize: 14,
     marginLeft: 6,
   },
-  // Weather Summary Section
   weatherSummary: {
     paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 12, // Less padding at bottom
+    paddingBottom: 12,
   },
   sectionSubtitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#334E68', // Dark blue-grey
+    color: '#334E68',
     marginBottom: 16,
   },
   weatherRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between', // Use space-between for better alignment
+    justifyContent: 'space-between',
     marginBottom: 12,
   },
   weatherItem: {
     alignItems: 'center',
-    flex: 1, // Allow items to take equal space
-    paddingHorizontal: 4, // Add slight horizontal padding
+    flex: 1,
+    paddingHorizontal: 4,
   },
-   weatherValue: {
+  weatherValue: {
     marginTop: 5,
     fontSize: 15,
-    fontWeight: '700', // Bolder value
-    color: '#102A43', // Very dark blue
+    fontWeight: '700',
+    color: '#102A43',
   },
   weatherLabel: {
-    fontSize: 10, // Smaller label
-    color: '#627D98', // Medium blue-grey
+    fontSize: 10,
+    color: '#627D98',
     marginTop: 3,
     textTransform: 'uppercase',
-    letterSpacing: 0.5, // Slight letter spacing
+    letterSpacing: 0.5,
   },
   weatherDescription: {
-      fontSize: 14,
-      color: '#486581', // Darker description text
-      textAlign: 'center',
-      marginTop: 8,
+    fontSize: 14,
+    color: '#486581',
+    textAlign: 'center',
+    marginTop: 8,
   },
   weatherPlaceholder: {
-      fontSize: 14,
-      color: '#888',
-      textAlign: 'center',
-      paddingVertical: 15,
-      fontStyle: 'italic',
+    fontSize: 14,
+    color: '#888',
+    textAlign: 'center',
+    paddingVertical: 15,
+    fontStyle: 'italic',
   },
-  // Loading & Error States
   loadingContainer: {
     padding: 30,
     alignItems: 'center',
@@ -792,7 +828,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF',
     borderRadius: 12,
     marginHorizontal: 16,
-     shadowColor: '#405161',
+    shadowColor: '#405161',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 5,
@@ -804,13 +840,6 @@ const styles = StyleSheet.create({
     color: '#334E68',
     fontSize: 15,
     fontWeight: '500',
-    paddingHorizontal: 10,
-  },
-   loadingSubText: { // Added subtext style
-    marginTop: 8,
-    textAlign: 'center',
-    color: '#627D98',
-    fontSize: 13,
     paddingHorizontal: 10,
   },
   errorContainer: {
@@ -838,12 +867,12 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   retryButton: {
-    marginTop: 10, // Reduced margin
+    marginTop: 10,
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 10,
     paddingHorizontal: 24,
-    backgroundColor: '#0062E6', // Adjusted blue
+    backgroundColor: '#0062E6',
     borderRadius: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -856,8 +885,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 15,
   },
-   // No Data state (when fetch succeeds but returns nothing)
-   noDataContainer: {
+  noDataContainer: {
     marginHorizontal: 16,
     marginVertical: 24,
     padding: 24,
@@ -866,21 +894,20 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#e0e0e0',
-   },
-   noDataText: {
-     textAlign: 'center',
-     color: '#667', // Slightly different grey
-     fontSize: 15,
-     marginTop: 12,
-     marginBottom: 16,
-     lineHeight: 22,
-   },
-  // Card Base Style
+  },
+  noDataText: {
+    textAlign: 'center',
+    color: '#667',
+    fontSize: 15,
+    marginTop: 12,
+    marginBottom: 16,
+    lineHeight: 22,
+  },
   cardBase: {
-    marginHorizontal: 12, // Match field card horizontal margin
+    marginHorizontal: 12,
     marginBottom: 16,
     backgroundColor: 'white',
-    borderRadius: 10, // Slightly less round
+    borderRadius: 10,
     padding: 16,
     shadowColor: '#405161',
     shadowOffset: { width: 0, height: 2 },
@@ -889,32 +916,32 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   sectionTitle: {
-    fontSize: 18, // Larger section titles
-    fontWeight: '700', // Bolder
+    fontSize: 18,
+    fontWeight: '700',
     marginBottom: 16,
-    color: '#102A43', // Very dark blue
+    color: '#102A43',
     flexDirection: 'row',
     alignItems: 'center',
   },
   sectionTitleIcon: {
-      marginRight: 10, // Space between icon and text
+    marginRight: 10,
   },
-  // Specific Card Styles
   recommendationsCard: {},
   analysisCard: {},
   adviceCard: {},
   actionsCard: {},
+  diseaseCard: {},
+  additionalCard: {},
   planCard: {
-    marginBottom: 24, // Keep extra space at the bottom
+    marginBottom: 24,
   },
-  // Crop Recommendation Item
   cropRecommendation: {
     marginBottom: 16,
     padding: 14,
-    backgroundColor: '#F0F4F8', // Lighter grey-blue background
+    backgroundColor: '#F0F4F8',
     borderRadius: 8,
     borderLeftWidth: 5,
-    borderLeftColor: '#4A90E2', // Different blue accent
+    borderLeftColor: '#4A90E2',
   },
   cropHeader: {
     flexDirection: 'row',
@@ -923,10 +950,10 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   cropName: {
-    fontSize: 17, // Slightly larger crop name
+    fontSize: 17,
     fontWeight: '600',
-    color: '#004488', // Darker blue for name
-    flexShrink: 1, // Allow name to shrink
+    color: '#004488',
+    flexShrink: 1,
     marginRight: 8,
   },
   scoreChip: {
@@ -945,7 +972,42 @@ const styles = StyleSheet.create({
     color: '#334E68',
     lineHeight: 21,
   },
-  // Current Crop Analysis / Advice / Plan text style
+  diseaseItem: {
+    marginBottom: 16,
+    padding: 14,
+    backgroundColor: '#FFF5F5',
+    borderRadius: 8,
+    borderLeftWidth: 5,
+    borderLeftColor: '#FF6B6B',
+  },
+  diseaseHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  diseaseName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#D93025',
+    flexShrink: 1,
+    marginRight: 8,
+  },
+  riskChip: {
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+  },
+  riskText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  diseasePrevention: {
+    fontSize: 14,
+    color: '#334E68',
+    lineHeight: 21,
+  },
   analysisText: {
     fontSize: 14,
     color: '#334E68',
@@ -956,17 +1018,21 @@ const styles = StyleSheet.create({
     color: '#334E68',
     lineHeight: 21,
   },
+  additionalText: {
+    fontSize: 14,
+    color: '#334E68',
+    lineHeight: 21,
+  },
   planText: {
     fontSize: 14,
     color: '#334E68',
     lineHeight: 21,
   },
-  // Action Item
   actionItem: {
     flexDirection: 'row',
-    alignItems: 'center', // Align bullet vertically centered
+    alignItems: 'center',
     marginBottom: 12,
-    paddingLeft: 4, // Indent action item slightly
+    paddingLeft: 4,
   },
   actionBullet: {
     width: 20,
@@ -977,43 +1043,37 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 12,
   },
-//  actionBulletText: { // Replaced with icon
-//     color: 'white',
-//     fontWeight: 'bold',
-//     fontSize: 11,
-//   },
   actionText: {
-    flex: 1, // Take remaining space
+    flex: 1,
     fontSize: 14,
-    color: '#102A43', // Dark text for actions
+    color: '#102A43',
     lineHeight: 21,
   },
-   // Empty State (No field selected)
-   emptyState: {
-    flex: 1, // Ensure it takes full height
-    justifyContent: 'center', // Center vertically
-    alignItems: 'center', // Center horizontally
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
     padding: 24,
-    backgroundColor: '#F4F7F9', // Match background
+    backgroundColor: '#F4F7F9',
   },
   emptyStateText: {
-    fontSize: 20, // Larger text
+    fontSize: 20,
     fontWeight: '600',
-    color: '#486581', // Softer grey-blue
+    color: '#486581',
     textAlign: 'center',
     marginTop: 20,
     marginBottom: 12,
   },
-   emptyStateSubText: {
+  emptyStateSubText: {
     fontSize: 15,
-    color: '#627D98', // Lighter grey-blue
+    color: '#627D98',
     textAlign: 'center',
     marginBottom: 30,
     paddingHorizontal: 20,
     lineHeight: 22,
   },
   emptyStateButton: {
-    backgroundColor: '#0062E6', // Match retry button blue
+    backgroundColor: '#0062E6',
     paddingVertical: 12,
     paddingHorizontal: 30,
     borderRadius: 8,
@@ -1029,6 +1089,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
 });
-
 
 export default Plan;

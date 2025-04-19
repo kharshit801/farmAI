@@ -10,16 +10,17 @@ import {
   FlatList, 
   Dimensions, 
   SafeAreaView, 
-  ActivityIndicator 
+  ActivityIndicator, 
+  TextStyle 
 } from 'react-native';
-import MapView, { Polygon, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Polygon, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { MaterialIcons } from '@expo/vector-icons';
-import { Router, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 
 // Import types
 import { Field, NewField, Coordinate, MapRegion } from '../components/type';
-import  { useField } from '../context/fieldcontext'
+import { useField } from '../context/fieldcontext';
 
 // Import utility files
 import { loadFields, saveField } from '../components/utils/fieldStorage';
@@ -31,8 +32,7 @@ import {
 
 const Fields: React.FC = () => {
   const { setSelectedField } = useField();
-
-  const router=useRouter();
+  const router = useRouter();
   const [fields, setFields] = useState<Field[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isMapModalVisible, setMapModalVisible] = useState(false);
@@ -49,7 +49,6 @@ const Fields: React.FC = () => {
     suggestedCrops: [],
   });
   const [isFetchingSuggestions, setIsFetchingSuggestions] = useState(false);
-  
   const [currentPage, setCurrentPage] = useState(0);
   const screenWidth = Dimensions.get('window').width;
 
@@ -58,17 +57,14 @@ const Fields: React.FC = () => {
     const fetchFields = async () => {
       try {
         const storedFields = await loadFields();
-        
+        console.log('Loaded fields from AsyncStorage:', storedFields); // Debug log
         if (storedFields.length > 0) {
-          // Add image property to fields loaded from storage
           const fieldsWithImages = storedFields.map(field => ({
             ...field,
-            image: require('../assets/images/fieldimage.jpg'), // Default image
+            image: require('../assets/images/fieldimage.jpg'),
           })) as Field[];
-          
           setFields(fieldsWithImages);
         } else {
-          // Set default field if no stored fields
           setFields([
             {
               id: '1',
@@ -83,13 +79,12 @@ const Fields: React.FC = () => {
                 { latitude: 25.4345, longitude: 81.8470 },
               ],
               image: require('../assets/images/fieldimage.jpg'),
-              suggestedCrops: ['Banana', 'Rice', 'Wheat'],
+              suggestedCrops: ['Banana', 'Rice', 'Wheat', 'Mustard'],
             },
           ]);
         }
       } catch (error) {
         console.error("Error loading fields:", error);
-        // Set default field on error
         setFields([
           {
             id: '1',
@@ -111,7 +106,6 @@ const Fields: React.FC = () => {
         setIsLoading(false);
       }
     };
-
     fetchFields();
   }, []);
 
@@ -124,7 +118,6 @@ const Fields: React.FC = () => {
           console.log('Permission to access location was denied');
           return;
         }
-
         let location = await Location.getCurrentPositionAsync({});
         setCurrentLocation({
           latitude: location.coords.latitude,
@@ -136,15 +129,17 @@ const Fields: React.FC = () => {
         console.error("Error getting location:", error);
       }
     };
-
     getLocation();
   }, []);
 
   const handleMapPress = (event: any) => {
     if (!isMarking) return;
-    
     const { coordinate } = event.nativeEvent;
     setSelectedPolygon([...selectedPolygon, coordinate]);
+  };
+
+  const undoLastPoint = () => {
+    setSelectedPolygon(selectedPolygon.slice(0, -1));
   };
 
   const completePolygon = async () => {
@@ -152,29 +147,18 @@ const Fields: React.FC = () => {
       alert('Please mark at least 3 points to create a field boundary');
       return;
     }
-    
-    // Calculate area and get location from coordinates
     const calculatedArea = calculateArea(selectedPolygon);
-    
-    // Get location name from coordinates (normally would use reverse geocoding)
     let locationName = 'Unknown Location';
-    
-    // For demo purposes, we'll just use a placeholder
     if (currentLocation) {
       locationName = 'Near Current Location';
     }
-    
-    // Calculate center point of polygon for crop suggestions
     const centerPoint = calculateCenter(selectedPolygon);
     setIsFetchingSuggestions(true);
-    
-    // Fetch crop suggestions based on field location
     const suggestedCrops = await mockFetchCropSuggestions(
       centerPoint.latitude, 
       centerPoint.longitude
     );
     setIsFetchingSuggestions(false);
-    
     setNewField({
       ...newField,
       area: calculatedArea,
@@ -182,7 +166,6 @@ const Fields: React.FC = () => {
       coordinates: selectedPolygon,
       suggestedCrops: suggestedCrops,
     });
-    
     setIsMarking(false);
     setMapModalVisible(false);
     setFieldInfoModalVisible(true);
@@ -198,7 +181,6 @@ const Fields: React.FC = () => {
       alert('Please enter field name and crop type');
       return;
     }
-    
     const newFieldEntry: Field = {
       id: Date.now().toString(),
       name: newField.name,
@@ -209,11 +191,9 @@ const Fields: React.FC = () => {
       image: require('../assets/images/fieldimage.jpg'),
       suggestedCrops: newField.suggestedCrops,
     };
-    
     try {
       const updatedFields = await saveField(newFieldEntry, fields);
       setFields(updatedFields);
-      
       setFieldInfoModalVisible(false);
       setNewField({
         name: '',
@@ -239,9 +219,8 @@ const Fields: React.FC = () => {
     <View style={[styles.fieldCard, { width: screenWidth - 32 }]}>
       <View style={styles.cardHeader}>
         <Text style={styles.fieldName}>{item.name}</Text>
-        <Text style={styles.areaText}>{item.area} Acre</Text>
+        <Text style={styles.areaText}>{item.area.toFixed(2)} Acre</Text>
       </View>
-      
       <View style={styles.imageContainer}>
         <Image 
           source={item.image} 
@@ -259,31 +238,31 @@ const Fields: React.FC = () => {
           </View>
         </View>
       </View>
-      
       <View style={styles.fieldDetailsContainer}>
         <View style={styles.locationContainer}>
           <MaterialIcons name="location-on" size={16} color="#666" />
           <Text style={styles.locationText}>{item.location}</Text>
         </View>
-        
         {item.suggestedCrops && item.suggestedCrops.length > 0 && (
           <View style={styles.suggestionsContainer}>
-            <Text style={styles.suggestionsTitle}>Suggested crops:</Text>
-            <View style={styles.cropTagsContainer}>
-              {item.suggestedCrops.slice(0, 3).map((crop, index) => (
-                <View key={index} style={styles.cropTag}>
+            <Text style={styles.suggestionsTitle}>Suggested Crops:</Text>
+            <FlatList
+              data={item.suggestedCrops}
+              renderItem={({ item: crop }) => (
+                <View style={styles.cropTag}>
                   <Text style={styles.cropTagText}>{crop}</Text>
                 </View>
-              ))}
-            </View>
+              )}
+              keyExtractor={(crop, index) => `${crop}-${index}`}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.cropTagsContainer}
+            />
           </View>
         )}
-        
-        {/* Updated Manage Field button */}
         <TouchableOpacity 
           style={styles.manageFieldButton}
           onPress={() => {
-            // Set the selected field in context before navigation
             setSelectedField(item);
             router.push('/managefield');
           }}
@@ -293,10 +272,10 @@ const Fields: React.FC = () => {
         </TouchableOpacity>
       </View>
     </View>
-  )
+  );
+
   const renderPageIndicator = () => {
-    const totalPages = Math.ceil(fields.length / 1); // 1 field per page
-    
+    const totalPages = Math.ceil(fields.length / 1);
     return (
       <View style={styles.paginationContainer}>
         {Array.from({ length: totalPages }).map((_, index) => (
@@ -324,7 +303,6 @@ const Fields: React.FC = () => {
   return (
     <SafeAreaView style={styles.container}>
       <Text style={styles.title}>Manage your fields</Text>
-      
       <FlatList
         data={fields}
         renderItem={renderField}
@@ -340,11 +318,8 @@ const Fields: React.FC = () => {
           );
           setCurrentPage(newPage);
         }}
-        
       />
-      
       {renderPageIndicator()}
-      
       <View style={styles.addFieldContainer}>
         <TouchableOpacity 
           style={styles.addFieldButton}
@@ -354,7 +329,6 @@ const Fields: React.FC = () => {
           <Text style={styles.addFieldText}>Add field</Text>
         </TouchableOpacity>
       </View>
-      
       {/* Map Modal for selecting field boundaries */}
       <Modal
         visible={isMapModalVisible}
@@ -371,29 +345,42 @@ const Fields: React.FC = () => {
               <MaterialIcons name="close" size={24} color="black" />
             </TouchableOpacity>
           </View>
-          
           {currentLocation ? (
-            <MapView
-              style={styles.map}
-              provider={PROVIDER_GOOGLE}
-              initialRegion={currentLocation}
-              onPress={handleMapPress}
-            >
-              {selectedPolygon.length > 0 && (
-                <Polygon
-                  coordinates={selectedPolygon}
-                  strokeColor="#0055FF"
-                  fillColor="rgba(0, 85, 255, 0.2)"
-                  strokeWidth={2}
-                />
-              )}
-            </MapView>
+            <View style={styles.mapContainer}>
+              <MapView
+                style={styles.map}
+                provider={PROVIDER_GOOGLE}
+                initialRegion={currentLocation}
+                onPress={handleMapPress}
+              >
+                {selectedPolygon.length > 0 && (
+                  <Polygon
+                    coordinates={selectedPolygon}
+                    strokeColor="#0055FF"
+                    fillColor="rgba(0, 85, 255, 0.2)"
+                    strokeWidth={2}
+                  />
+                )}
+                {selectedPolygon.map((coord, index) => (
+                  <Marker
+                    key={index}
+                    coordinate={coord}
+                    title={`Point ${index + 1}`}
+                    pinColor="#0055FF"
+                  />
+                ))}
+              </MapView>
+              <View style={styles.pointsCounter}>
+                <Text style={styles.pointsCounterText}>
+                  Points placed: {selectedPolygon.length}
+                </Text>
+              </View>
+            </View>
           ) : (
             <View style={styles.loadingContainer}>
               <Text>Loading map...</Text>
             </View>
           )}
-          
           <View style={styles.mapControlsContainer}>
             <TouchableOpacity 
               style={[styles.mapButton, isMarking && styles.mapButtonActive]}
@@ -403,16 +390,21 @@ const Fields: React.FC = () => {
                 {isMarking ? 'Marking...' : 'Start Marking'}
               </Text>
             </TouchableOpacity>
-            
+            <TouchableOpacity 
+              style={[styles.mapButton, selectedPolygon.length === 0 && styles.mapButtonDisabled]}
+              onPress={undoLastPoint}
+              disabled={selectedPolygon.length === 0}
+            >
+              <Text style={styles.mapButtonText}>Undo</Text>
+            </TouchableOpacity>
             <TouchableOpacity 
               style={styles.mapButton}
               onPress={resetMap}
             >
               <Text style={styles.mapButtonText}>Reset</Text>
             </TouchableOpacity>
-            
             <TouchableOpacity 
-              style={[styles.mapButton, selectedPolygon.length >= 3 && styles.mapButtonComplete]}
+              style={[styles.mapButton, selectedPolygon.length >= 3 ? styles.mapButtonComplete : styles.mapButtonDisabled]}
               onPress={completePolygon}
               disabled={selectedPolygon.length < 3}
             >
@@ -426,7 +418,6 @@ const Fields: React.FC = () => {
           </View>
         </SafeAreaView>
       </Modal>
-      
       {/* Field Info Modal */}
       <Modal
         visible={isFieldInfoModalVisible}
@@ -443,7 +434,6 @@ const Fields: React.FC = () => {
               <MaterialIcons name="close" size={24} color="black" />
             </TouchableOpacity>
           </View>
-          
           <View style={styles.fieldFormContainer}>
             <Text style={styles.formLabel}>Field Name</Text>
             <TextInput
@@ -452,7 +442,6 @@ const Fields: React.FC = () => {
               onChangeText={(text) => setNewField({...newField, name: text})}
               placeholder="Enter field name"
             />
-            
             <Text style={styles.formLabel}>Crop Type</Text>
             <TextInput
               style={styles.input}
@@ -460,13 +449,10 @@ const Fields: React.FC = () => {
               onChangeText={(text) => setNewField({...newField, crop: text})}
               placeholder="Enter crop type"
             />
-            
             <Text style={styles.formLabel}>Area (Calculated)</Text>
-            <Text style={styles.calculatedText}>{newField.area} Acres</Text>
-            
+            <Text style={styles.calculatedText}>{newField.area.toFixed(2)} Acres</Text>
             <Text style={styles.formLabel}>Location</Text>
             <Text style={styles.calculatedText}>{newField.location}</Text>
-            
             {isFetchingSuggestions ? (
               <View style={styles.suggestionsLoadingContainer}>
                 <ActivityIndicator size="small" color="#0055FF" />
@@ -475,13 +461,13 @@ const Fields: React.FC = () => {
             ) : newField.suggestedCrops && newField.suggestedCrops.length > 0 ? (
               <View>
                 <Text style={styles.formLabel}>Suggested Crops</Text>
-                <View style={styles.cropTagsContainer}>
-                  {newField.suggestedCrops.map((crop, index) => (
+                <FlatList
+                  data={newField.suggestedCrops}
+                  renderItem={({ item: crop }) => (
                     <TouchableOpacity 
-                      key={index} 
                       style={[
                         styles.cropTag, 
-                        newField.crop === crop && styles.cropTagSelected
+                        newField.crop === crop && { borderColor: '#28a745', borderWidth: 1 }
                       ]}
                       onPress={() => setNewField({...newField, crop})}
                     >
@@ -492,11 +478,14 @@ const Fields: React.FC = () => {
                         {crop}
                       </Text>
                     </TouchableOpacity>
-                  ))}
-                </View>
+                  )}
+                  keyExtractor={(crop, index) => `${crop}-${index}`}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.cropTagsContainer}
+                />
               </View>
             ) : null}
-            
             <TouchableOpacity 
               style={styles.saveButton}
               onPress={handleSaveField}
@@ -546,7 +535,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    height: 300, // Increased height for suggestions
+    minHeight: 360,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -558,12 +547,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
-  },
-  fieldInfo: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
   },
   cropContainer: {
     flexDirection: 'row',
@@ -614,6 +597,7 @@ const styles = StyleSheet.create({
   },
   fieldDetailsContainer: {
     marginTop: 4,
+    flex: 1,
   },
   locationContainer: {
     flexDirection: 'row',
@@ -626,35 +610,41 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   suggestionsContainer: {
-    marginTop: 6,
-  },
-  suggestionsTitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#555',
-    marginBottom: 4,
-  },
-  cropTagsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  cropTag: {
-    backgroundColor: '#f0f0f0',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 16,
-    marginRight: 8,
+    marginTop: 8,
     marginBottom: 8,
   },
-  cropTagSelected: {
-    backgroundColor: '#0055FF',
+  suggestionsTitle: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#555',
+    marginBottom: 8,
+  },
+  cropTagsContainer: {
+    marginTop: 8,
+    flexDirection: 'row',
+    paddingVertical: 0,
+    paddingRight: 24,
+  },
+  cropTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#e6f0fa',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 16,
+    marginRight: 8,
+    minWidth: 70,
   },
   cropTagText: {
     fontSize: 12,
-    color: '#555',
+    color: '#333',
+    fontWeight: '500',
   },
   cropTagTextSelected: {
-    color: 'white',
+    fontSize: 12,
+    color: '#28a745',
+    fontWeight: '700',
   },
   addFieldContainer: {
     alignItems: 'center',
@@ -663,7 +653,7 @@ const styles = StyleSheet.create({
   addFieldButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0055FF',
+    backgroundColor: '#6A994E',
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 50,
@@ -702,8 +692,25 @@ const styles = StyleSheet.create({
   closeButton: {
     padding: 4,
   },
+  mapContainer: {
+    flex: 1,
+    position: 'relative',
+  },
   map: {
     flex: 1,
+  },
+  pointsCounter: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    padding: 8,
+    borderRadius: 8,
+  },
+  pointsCounterText: {
+    fontSize: 14,
+    color: '#333',
+    fontWeight: '500',
   },
   mapControlsContainer: {
     flexDirection: 'row',
@@ -711,22 +718,27 @@ const styles = StyleSheet.create({
     padding: 16,
     borderTopWidth: 1,
     borderColor: '#ddd',
+    backgroundColor: 'white',
   },
   mapButton: {
     paddingVertical: 10,
     paddingHorizontal: 16,
-    backgroundColor: '#eee',
+    backgroundColor: '#f0f0f0',
     borderRadius: 8,
   },
   mapButtonActive: {
-    backgroundColor: '#0055FF',
+    backgroundColor: '#6A994E',
   },
   mapButtonComplete: {
     backgroundColor: '#28a745',
   },
+  mapButtonDisabled: {
+    backgroundColor: '#ccc',
+  },
   mapButtonText: {
     fontSize: 14,
     color: '#333',
+    fontWeight: '500',
   },
   activeButtonText: {
     color: 'white',
@@ -796,7 +808,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#0055FF',
   },
   manageFieldButton: {
-    backgroundColor: '#0055FF',
+    backgroundColor: '#6A994E',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
