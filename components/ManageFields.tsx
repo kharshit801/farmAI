@@ -4,13 +4,13 @@ import { View, Text, Image, StyleSheet, Pressable ,TouchableOpacity} from 'react
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
 import LottieView from 'lottie-react-native';
-import { useRouter } from 'expo-router'; // Import useRouter
+import { router, useRouter } from 'expo-router'; // Import useRouter
 import fields from './../app/fields'
 
 const ManageFields: React.FC = () => {
 
  
-
+ const router = useRouter();
   return (
     <TouchableOpacity onPress={() => router.push('/fields')}>
     <View style={styles.sectionContainer}>
