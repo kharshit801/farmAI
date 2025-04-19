@@ -2,6 +2,7 @@ import { Tabs } from 'expo-router';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import Colors from '@/constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
+
 import { Platform, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
