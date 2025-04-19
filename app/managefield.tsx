@@ -359,18 +359,18 @@ const ManageField = () => {
               <Text style={styles.actionText}>Edit Field</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.actionButton}>
+            <TouchableOpacity style={styles.actionButton} onPress={()=> router.push('/fields')}>
               <View style={[styles.actionIconContainer, styles.wateringIcon]}>
                 <Ionicons name="water" size={24} color="white" />
               </View>
               <Text style={styles.actionText}>Irrigation</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.actionButton}>
+            <TouchableOpacity style={styles.actionButton} onPress={()=>router.push('/Plan')}>
               <View style={[styles.actionIconContainer, styles.analyticsIcon]}>
                 <MaterialIcons name="insert-chart" size={24} color="white" />
               </View>
-              <Text style={styles.actionText}>Analytics</Text>
+              <Text style={styles.actionText}>Planning</Text>
             </TouchableOpacity>
           </View>
         </View>
