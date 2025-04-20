@@ -15,13 +15,57 @@ import { Stack } from 'expo-router';
 import { MaterialIcons, FontAwesome5, Ionicons } from '@expo/vector-icons';
 import { useField } from '../context/fieldcontext';
 import { calculateCenter } from './../components/utils/Cropservice';
+import { Julep } from '@julep/sdk';
 
 // --- Constants ---
 const JULEP_API_KEY = "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTAxNTkwMTcsImlhdCI6MTc0NDk3NTAxNywic3ViIjoiNjVhMWE5MzYtYjBlMy01OTI0LTk3NzQtNjU1NDVmYmYwNTgyIn0.QbU03Bwv5Qv4Wv5sKuXu26wE9vac0lguHwKlUfzVeLvwVY1-UlMT7kr3h8K6XQEQJUn925NB5OD4uLR0jPHRAQ"; // Move to .env in production
 const JULEP_AGENT_ID = "06802005-adc9-75f1-8000-5ea756eb8532";
-const JULEP_API_URL = "https://api.julep.ai/api/chat";
 const OPENWEATHER_API_KEY = "5942ca62c79ba3159881b814558fb0ae";
 const WEATHER_API_URL = "https://api.openweathermap.org/data/2.5/weather";
+
+// --- Julep Task Definition ---
+const julepTaskDefinition = {
+  name: 'Agricultural Plan Generation',
+  description: 'Generate a comprehensive agricultural plan based on field and weather data',
+  main: [
+    {
+      type: 'prompt',
+      prompt: `
+You are an expert agricultural advisor. Generate a plan to maximize crop production for a field in {steps[0].input.location} with the following conditions:
+- Temperature: {steps[0].input.currentTemp}°C
+- Humidity: {steps[0].input.humidity}%
+- Precipitation: {steps[0].input.precipitation} mm
+- Wind Speed: {steps[0].input.windSpeed} m/s
+- Weather: {steps[0].input.weatherDescription}
+- Field Area: {steps[0].input.area} Acres
+- Current Crop: {steps[0].input.currentCrop}
+
+**Requirements**:
+- Recommend 2 crops suited for the conditions.
+- Provide strategies to optimize yield.
+- Identify 2 potential disease risks and prevention methods.
+- Offer sustainable farming advice.
+
+**Output Format (JSON)**:
+{
+  "recommendedCrops": [
+    {"name": "Crop Name", "suitabilityScore": "Score/10", "reason": "Reason"},
+    {"name": "Crop Name", "suitabilityScore": "Score/10", "reason": "Reason"}
+  ],
+  "currentCropAnalysis": "Analysis or 'N/A'",
+  "cultivationAdvice": "Strategies",
+  "immediateActions": ["Action 1", "Action 2"],
+  "longTermPlan": "Long-term suggestions",
+  "diseaseRisks": [
+    {"disease": "Disease Name", "riskLevel": "Low/Medium/High", "prevention": "Methods"},
+    {"disease": "Disease Name", "riskLevel": "Low/Medium/High", "prevention": "Methods"}
+  ],
+  "additionalAdvice": "Additional tips"
+}`,
+      response_format: { type: 'json_object' },
+    },
+  ],
+};
 
 // --- Interfaces ---
 interface Coordinate {
@@ -90,6 +134,22 @@ const Plan = () => {
   const isMounted = useRef<boolean>(true);
   const abortController = useRef<AbortController | null>(null);
   const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const fetchCountRef = useRef<number>(0); // Track fetch attempts to prevent loops
+
+  // Initialize Julep Client
+  const julepClient = useCallback(() => {
+    if (!JULEP_API_KEY) {
+      setError('Julep API key is missing.');
+      return null;
+    }
+    try {
+      return new Julep({ apiKey: JULEP_API_KEY });
+    } catch (err: any) {
+      setError(`Failed to initialize Julep client: ${err.message}`);
+      console.error('Julep client initialization error:', err);
+      return null;
+    }
+  }, []);
 
   // Cleanup function
   const cleanup = useCallback(() => {
@@ -142,10 +202,15 @@ const Plan = () => {
     }
   }, []);
 
-  // Fetch AI recommendations with Julep API
+  // Fetch AI recommendations with Julep SDK
   const fetchRecommendations = useCallback(
     async (weatherData: Weather, inputData: any, retries = 2): Promise<AIRecommendation | null> => {
-      abortController.current = new AbortController();
+      const client = julepClient();
+      if (!client) {
+        setError('Julep client initialization failed.');
+        return null;
+      }
+
       try {
         // Validate input data
         const validatedData = {
@@ -159,142 +224,102 @@ const Plan = () => {
           currentCrop: inputData.currentCrop || 'None',
         };
 
-        const prompt = `
-You are an expert agricultural advisor. Using the provided field location and weather data, generate a comprehensive agricultural plan to maximize crop production for a field in ${validatedData.location}. The plan should include crop recommendations, strategies to optimize yield, potential disease risks, and additional advice for sustainable farming.
+        console.log('Creating Julep task with input:', validatedData);
 
-**Input Data**:
-- Location: ${validatedData.location}
-- Temperature: ${validatedData.currentTemp}°C
-- Humidity: ${validatedData.humidity}%
-- Precipitation: ${validatedData.precipitation} mm
-- Wind Speed: ${validatedData.windSpeed} m/s
-- Weather Condition: ${validatedData.weatherDescription}
-- Field Area: ${validatedData.area} Acres
-- Current Crop: ${validatedData.currentCrop}
-
-**Requirements**:
-- Recommend at least two crops best suited for the location and current weather conditions.
-- Provide practical strategies to maximize production (e.g., irrigation, fertilization, planting techniques).
-- Identify at least two potential disease risks for the recommended crops and suggest prevention methods.
-- Offer additional advice (e.g., soil management, pest control, crop rotation) for sustainable farming.
-
-**Output Format**:
-Return a JSON object in this exact format:
-{
-  "recommendedCrops": [
-    {
-      "name": "Crop Name",
-      "suitabilityScore": "Score/10",
-      "reason": "Reason based on location, weather, and field conditions"
-    },
-    {
-      "name": "Crop Name",
-      "suitabilityScore": "Score/10",
-      "reason": "Reason based on location, weather, and field conditions"
-    }
-  ],
-  "currentCropAnalysis": "Analysis of current crop's suitability or 'N/A' if none",
-  "cultivationAdvice": "Practical strategies to maximize production under current conditions",
-  "immediateActions": [
-    "Action 1 based on current conditions",
-    "Action 2 if applicable"
-  ],
-  "longTermPlan": "Long-term suggestions for sustainable farming and yield improvement",
-  "diseaseRisks": [
-    {
-      "disease": "Disease Name",
-      "riskLevel": "Low/Medium/High",
-      "prevention": "Prevention methods"
-    },
-    {
-      "disease": "Disease Name",
-      "riskLevel": "Low/Medium/High",
-      "prevention": "Prevention methods"
-    }
-  ],
-  "additionalAdvice": "Additional tips for soil management, pest control, or other relevant practices"
-}
-
-Ensure all advice is realistic, specific, and tailored to the input data. Provide at least two crop recommendations and two disease risks.
-        `;
-
-        const response = await fetch(JULEP_API_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${JULEP_API_KEY}`,
-          },
-          body: JSON.stringify({
-            agent_id: JULEP_AGENT_ID,
-            messages: [
-              {
-                role: 'user',
-                content: prompt,
-              },
-            ],
-            response_format: { type: 'json_object' },
-          }),
-          signal: abortController.current?.signal,
-        });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`Julep API error: ${response.status} ${response.statusText} - ${errorText}`);
-        }
-
-        const data = await response.json();
-        console.log('Julep API raw response:', data);
-
-        let responseText = data.choices[0]?.message?.content || '{}';
-        if (typeof responseText === 'object') {
-          responseText = JSON.stringify(responseText);
-        }
-
-        // Robust response parsing
-        let cleanedResponse = responseText.trim();
-        if (cleanedResponse.startsWith('```json')) {
-          cleanedResponse = cleanedResponse.substring(7, cleanedResponse.length - 3).trim();
-        } else if (cleanedResponse.startsWith('```')) {
-          cleanedResponse = cleanedResponse.substring(3, cleanedResponse.length - 3).trim();
-        }
-
-        // Validate JSON
-        let parsedResponse: AIRecommendation;
+        // Create Julep task
+        let task;
         try {
-          parsedResponse = JSON.parse(cleanedResponse);
-        } catch (parseError) {
-          console.error('JSON parse error:', parseError, 'Response:', cleanedResponse);
-          throw new Error(`Failed to parse Julep API response: ${parseError}`);
+          task = await client.tasks.create(JULEP_AGENT_ID, julepTaskDefinition);
+          console.log('Task created:', task.id);
+        } catch (taskErr: any) {
+          throw new Error(`Task creation failed: ${taskErr.message || 'Unknown task creation error'}`);
         }
-        console.log('Parsed Julep response:', parsedResponse);
 
-        // Relaxed response validation
-        parsedResponse.recommendedCrops = parsedResponse.recommendedCrops?.length
-          ? parsedResponse.recommendedCrops
-          : [
-              { name: 'Unknown Crop', suitabilityScore: 'N/A', reason: 'No crop data provided' },
-              { name: 'Unknown Crop', suitabilityScore: 'N/A', reason: 'No crop data provided' },
-            ];
-        parsedResponse.currentCropAnalysis = parsedResponse.currentCropAnalysis || 'N/A';
-        parsedResponse.cultivationAdvice = parsedResponse.cultivationAdvice || 'No cultivation advice available.';
-        parsedResponse.immediateActions = parsedResponse.immediateActions?.length
-          ? parsedResponse.immediateActions
-          : ['No immediate actions specified.'];
-        parsedResponse.longTermPlan = parsedResponse.longTermPlan || 'No long-term plan available.';
-        parsedResponse.diseaseRisks = parsedResponse.diseaseRisks?.length
-          ? parsedResponse.diseaseRisks
-          : [
-              { disease: 'Unknown Disease', riskLevel: 'N/A', prevention: 'No prevention data provided' },
-              { disease: 'Unknown Disease', riskLevel: 'N/A', prevention: 'No prevention data provided' },
-            ];
-        parsedResponse.additionalAdvice = parsedResponse.additionalAdvice || 'No additional advice available.';
+        // Create execution
+        let execution;
+        try {
+          execution = await client.executions.create(task.id, {
+            input: validatedData,
+          });
+          console.log('Execution created:', execution.id);
+        } catch (execErr: any) {
+          throw new Error(`Execution creation failed: ${execErr.message || 'Unknown execution creation error'}`);
+        }
 
-        return parsedResponse;
+        // Poll for execution status with timeout
+        let result: any;
+        let attempts = 0;
+        const maxAttempts = 10;
+        const timeoutMs = 30000; // 30 seconds timeout
+        const startTime = Date.now();
+
+        while (attempts < maxAttempts && Date.now() - startTime < timeoutMs) {
+          try {
+            result = await client.executions.get(execution.id);
+            console.log('Execution status:', result.status, 'Attempt:', attempts + 1, 'Full result:', JSON.stringify(result));
+          } catch (statusErr: any) {
+            throw new Error(`Execution status check failed: ${statusErr.message || 'Unknown status check error'}`);
+          }
+
+          if (result.status === 'succeeded') {
+            let responseText = result.output?.choices?.[0]?.message?.content;
+            if (!responseText) {
+              throw new Error('No content in Julep response.');
+            }
+
+            // Parse response
+            let cleanedResponse = responseText.trim();
+            if (cleanedResponse.startsWith('```json')) {
+              cleanedResponse = cleanedResponse.substring(7, cleanedResponse.length - 3).trim();
+            } else if (cleanedResponse.startsWith('```')) {
+              cleanedResponse = cleanedResponse.substring(3, cleanedResponse.length - 3).trim();
+            }
+
+            // Validate JSON
+            let parsedResponse: AIRecommendation;
+            try {
+              parsedResponse = JSON.parse(cleanedResponse);
+            } catch (parseError) {
+              console.error('JSON parse error:', parseError, 'Response:', cleanedResponse);
+              throw new Error(`Failed to parse Julep response: ${parseError}`);
+            }
+            console.log('Parsed Julep response:', parsedResponse);
+
+            // Relaxed response validation
+            parsedResponse.recommendedCrops = parsedResponse.recommendedCrops?.length
+              ? parsedResponse.recommendedCrops
+              : [
+                  { name: 'Unknown Crop', suitabilityScore: 'N/A', reason: 'No crop data provided' },
+                  { name: 'Unknown Crop', suitabilityScore: 'N/A', reason: 'No crop data provided' },
+                ];
+            parsedResponse.currentCropAnalysis = parsedResponse.currentCropAnalysis || 'N/A';
+            parsedResponse.cultivationAdvice = parsedResponse.cultivationAdvice || 'No cultivation advice available.';
+            parsedResponse.immediateActions = parsedResponse.immediateActions?.length
+              ? parsedResponse.immediateActions
+              : ['No immediate actions specified.'];
+            parsedResponse.longTermPlan = parsedResponse.longTermPlan || 'No long-term plan available.';
+            parsedResponse.diseaseRisks = parsedResponse.diseaseRisks?.length
+              ? parsedResponse.diseaseRisks
+              : [
+                  { disease: 'Unknown Disease', riskLevel: 'N/A', prevention: 'No prevention data provided' },
+                  { disease: 'Unknown Disease', riskLevel: 'N/A', prevention: 'No prevention data provided' },
+                ];
+            parsedResponse.additionalAdvice = parsedResponse.additionalAdvice || 'No additional advice available.';
+
+            return parsedResponse;
+          } else if (result.status === 'failed') {
+            const errorMsg = result.error?.message || JSON.stringify(result.error) || 'Unknown error';
+            throw new Error(`Julep task failed: ${errorMsg}`);
+          }
+
+          attempts++;
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
+
+        throw new Error('Task execution timed out after 30 seconds.');
       } catch (err: any) {
-        if (err.name === 'AbortError') {
-          return null;
-        }
-        console.error(`Recommendation fetch error (attempt ${3 - retries}):`, err);
+        console.error(`Recommendation fetch error (attempt ${3 - retries}):`, err, 'Full error:', JSON.stringify(err));
+        setError(`Recommendation fetch failed: ${err.message}`);
 
         // Retry logic
         if (retries > 0) {
@@ -338,11 +363,20 @@ Ensure all advice is realistic, specific, and tailored to the input data. Provid
         };
       }
     },
-    []
+    [julepClient]
   );
 
   // Debounced fetch function
   const debounceFetch = useCallback(() => {
+    if (fetchCountRef.current >= 3) {
+      console.warn('Maximum fetch attempts reached. Aborting.');
+      setError('Maximum fetch attempts reached. Please try again later.');
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
+
+    fetchCountRef.current += 1;
     cleanup();
     if (fetchTimeoutRef.current) {
       clearTimeout(fetchTimeoutRef.current);
@@ -355,6 +389,7 @@ Ensure all advice is realistic, specific, and tailored to the input data. Provid
         setError('Field data is incomplete or missing coordinates.');
         setLoading(false);
         setRefreshing(false);
+        fetchCountRef.current = 0;
         return;
       }
 
@@ -372,6 +407,7 @@ Ensure all advice is realistic, specific, and tailored to the input data. Provid
         setError('Invalid center coordinates calculated.');
         setLoading(false);
         setRefreshing(false);
+        fetchCountRef.current = 0;
         return;
       }
 
@@ -380,6 +416,7 @@ Ensure all advice is realistic, specific, and tailored to the input data. Provid
         setError('Failed to fetch weather data. Please check your API key or network connection.');
         setLoading(false);
         setRefreshing(false);
+        fetchCountRef.current = 0;
         return;
       }
 
@@ -391,6 +428,7 @@ Ensure all advice is realistic, specific, and tailored to the input data. Provid
           weather: weatherData,
         });
       } else {
+        fetchCountRef.current = 0;
         return;
       }
 
@@ -409,7 +447,7 @@ Ensure all advice is realistic, specific, and tailored to the input data. Provid
           area: selectedField.area || 1,
         };
 
-        console.log('Input Data for Julep API:', inputData);
+        console.log('Input Data for Julep SDK:', inputData);
 
         const recommendationResult = await fetchRecommendations(weatherData, inputData);
         if (recommendationResult && isMounted.current) {
@@ -427,6 +465,7 @@ Ensure all advice is realistic, specific, and tailored to the input data. Provid
         if (isMounted.current) {
           setLoading(false);
           setRefreshing(false);
+          fetchCountRef.current = 0;
         }
       }
     }, 500);
@@ -453,6 +492,7 @@ Ensure all advice is realistic, specific, and tailored to the input data. Provid
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     if (selectedField) {
+      fetchCountRef.current = 0; // Reset fetch count on manual refresh
       debounceFetch();
     } else {
       setError('No field selected to refresh');
