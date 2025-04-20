@@ -50,7 +50,7 @@
 ---
 
 ## 📽️ Demo Video
-*Coming Soon*
+https://drive.google.com/file/d/1-vKGZ4oe4MKvnrXSX6yNKmIpdpPo4DJ1/view
 
 ## 🖥️ Presentation
 [📊 Click to View the PPT](https://www.canva.com/design/DAGlHMvASVo/UuyKCeXS75A5e7OVWrdSKg/edit)
